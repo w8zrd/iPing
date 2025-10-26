@@ -1,70 +1,49 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { 
-  getFirestore, collection, addDoc, onSnapshot, orderBy, query 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+// Paste your Firebase config below 👇
 const firebaseConfig = {
-  // paste your firebase config here
+  apiKey: "AIzaSyCq_XEdRwe1lRA7y2FfljFmfa5n-zQWJSw",
+  authDomain: "ipingonline.firebaseapp.com",
+  projectId: "ipingonline",
+  storageBucket: "ipingonline.firebasestorage.app",
+  messagingSenderId: "880672073705",
+  appId: "1:880672073705:web:d1bce5f5b3f8cf001a4d78",
+  measurementId: "G-LN4GBVV603"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-// DOM refs
-const email = document.getElementById("email");
-const password = document.getElementById("password");
-const signup = document.getElementById("signup");
-const login = document.getElementById("login");
-const appSection = document.getElementById("app");
-const authSection = document.getElementById("auth");
-const postBtn = document.getElementById("postBtn");
-const postText = document.getElementById("postText");
+const form = document.getElementById("pingForm");
+const input = document.getElementById("pingInput");
 const feed = document.getElementById("feed");
 
-// Auth
-signup.onclick = () => createUserWithEmailAndPassword(auth, email.value, password.value)
-  .catch(e => alert(e.message));
-login.onclick = () => signInWithEmailAndPassword(auth, email.value, password.value)
-  .catch(e => alert(e.message));
+// Add new ping
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
 
-onAuthStateChanged(auth, user => {
-  if (user) {
-    authSection.classList.add("hidden");
-    appSection.classList.remove("hidden");
-    showFeed();
-  } else {
-    authSection.classList.remove("hidden");
-    appSection.classList.add("hidden");
-  }
+  await db.collection("pings").add({
+    text,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  input.value = "";
 });
 
-// Feed
-async function showFeed() {
-  const postsRef = collection(db, "posts");
-  const q = query(postsRef, orderBy("time", "desc"));
-  onSnapshot(q, snapshot => {
+// Real-time feed
+db.collection("pings")
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
     feed.innerHTML = "";
     snapshot.forEach(doc => {
-      const p = doc.data();
-      feed.innerHTML += `
-        <div class="post">
-          <b>${p.user}</b><br/>
-          ${p.text}
-        </div>`;
+      const data = doc.data();
+      const el = document.createElement("div");
+      el.className = "ping";
+      el.innerHTML = `
+        <p>${data.text}</p>
+        <time>${data.timestamp?.toDate().toLocaleString() || "just now"}</time>
+      `;
+      feed.appendChild(el);
     });
   });
-}
-
-postBtn.onclick = async () => {
-  if (!postText.value.trim()) return;
-  await addDoc(collection(db, "posts"), {
-    text: postText.value,
-    user: auth.currentUser.email,
-    time: Date.now()
-  });
-  postText.value = "";
-};
