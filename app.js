@@ -1,5 +1,10 @@
+/* =======================
+   iPing - app.js
+   ======================= */
+
+// ---------- Firebase Setup ----------
 const firebaseConfig = {
- apiKey: "AIzaSyCq_XEdRwe1lRA7y2FfljFmfa5n-zQWJSw",
+  apiKey: "AIzaSyCq_XEdRwe1lRA7y2FfljFmfa5n-zQWJSw",
   authDomain: "ipingonline.firebaseapp.com",
   projectId: "ipingonline",
   storageBucket: "ipingonline.firebasestorage.app",
@@ -12,147 +17,270 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DOM
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const signupBtn = document.getElementById("signupBtn");
-const loginBtn = document.getElementById("loginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const userDisplay = document.getElementById("userDisplay");
-const authSection = document.getElementById("authSection");
-const postSection = document.getElementById("postSection");
+
+// ---------- Elements ----------
+const authPanel = document.getElementById("authPanel");
+const appPanel = document.getElementById("appPanel");
 const feed = document.getElementById("feed");
-const form = document.getElementById("pingForm");
-const input = document.getElementById("pingInput");
-const msgBox = document.getElementById("authMsg");
+const msg = document.getElementById("msg");
 const loader = document.getElementById("loader");
 
-// Helper functions
-function showMsg(text, color="#000") {
-  msgBox.textContent = text;
-  msgBox.style.color = color;
-}
+// Auth inputs
+const emailInput = document.getElementById("email");
+const passInput = document.getElementById("password");
+const loginBtn = document.getElementById("loginBtn");
+const signupBtn = document.getElementById("signupBtn");
 
-function toggleLoader(show=true) {
-  loader.style.display = show ? "block" : "none";
-}
+// Post elements
+const pingInput = document.getElementById("pingInput");
+const pingBtn = document.getElementById("pingBtn");
 
-// Auth actions
-signupBtn.onclick = () => {
+// Nav buttons
+const homeBtn = document.getElementById("homeBtn");
+const searchBtn = document.getElementById("searchBtn");
+const profileBtn = document.getElementById("profileBtn");
+
+// Panels
+const homePanel = document.getElementById("homePanel");
+const searchPanel = document.getElementById("searchPanel");
+const profilePanel = document.getElementById("profilePanel");
+
+// Profile fields
+const displayNameInput = document.getElementById("displayName");
+const bioInput = document.getElementById("bio");
+const saveProfileBtn = document.getElementById("saveProfileBtn");
+const userPingsDiv = document.getElementById("userPings");
+
+// Search
+const searchInput = document.getElementById("searchInput");
+const searchResults = document.getElementById("searchResults");
+
+
+// ---------- Auth Logic ----------
+signupBtn.addEventListener("click", async () => {
   const email = emailInput.value.trim();
-  const pass = passwordInput.value.trim();
-  if (!email || !pass) return showMsg("Please enter email and password", "red");
+  const pass = passInput.value.trim();
 
-  toggleLoader(true);
-  showMsg("Creating your account…");
-  auth.createUserWithEmailAndPassword(email, pass)
-    .then(() => showMsg("Account created successfully!", "green"))
-    .catch(err => {
-      let message = "Something went wrong.";
-      if (err.code === "auth/email-already-in-use") message = "You already have an account.";
-      if (err.code === "auth/weak-password") message = "Password too weak (min 6 chars).";
-      showMsg(message, "red");
-    })
-    .finally(() => toggleLoader(false));
-};
+  if (!email || !pass) return showMsg("Please fill in both fields.");
 
-loginBtn.onclick = () => {
-  const email = emailInput.value.trim();
-  const pass = passwordInput.value.trim();
-  if (!email || !pass) return showMsg("Enter your email and password", "red");
+  showLoading("Creating account...");
 
-  toggleLoader(true);
-  showMsg("Signing you in…");
-  auth.signInWithEmailAndPassword(email, pass)
-    .then(() => showMsg("Welcome back!", "green"))
-    .catch(err => {
-      let message = "Login failed.";
-      if (err.code === "auth/user-not-found") message = "No account found, please sign up.";
-      if (err.code === "auth/wrong-password") message = "Incorrect password.";
-      showMsg(message, "red");
-    })
-    .finally(() => toggleLoader(false));
-};
-
-logoutBtn.onclick = () => auth.signOut();
-
-// Listen for Auth
-auth.onAuthStateChanged(user => {
-  if (user) {
-    userDisplay.textContent = user.email;
-    fadeSwitch(authSection, postSection);
-    logoutBtn.style.display = "inline-block";
-    loadFeed();
-  } else {
-    userDisplay.textContent = "Not signed in";
-    fadeSwitch(postSection, authSection);
-    logoutBtn.style.display = "none";
+  try {
+    await auth.createUserWithEmailAndPassword(email, pass);
+    hideLoading();
+    showMsg("Account created successfully!");
+  } catch (err) {
+    hideLoading();
+    showMsg(err.message);
   }
 });
 
-function fadeSwitch(hideEl, showEl) {
-  hideEl.classList.remove("show");
-  hideEl.classList.add("fade");
-  showEl.classList.remove("fade");
-  showEl.classList.add("show");
-  hideEl.style.display = "none";
-  showEl.style.display = "block";
+loginBtn.addEventListener("click", async () => {
+  const email = emailInput.value.trim();
+  const pass = passInput.value.trim();
+
+  if (!email || !pass) return showMsg("Please fill in both fields.");
+
+  showLoading("Logging you in...");
+
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    hideLoading();
+    showMsg("Welcome back!");
+  } catch (err) {
+    hideLoading();
+    showMsg(err.message);
+  }
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    authPanel.style.display = "none";
+    appPanel.style.display = "block";
+    loadFeed();
+    setActive(homeBtn, homePanel);
+  } else {
+    appPanel.style.display = "none";
+    authPanel.style.display = "block";
+  }
+});
+
+
+// ---------- Feed Logic ----------
+async function loadFeed() {
+  feed.innerHTML = "<p class='fade-in' style='text-align:center;'>Loading feed...</p>";
+  const snapshot = await db.collection("pings").orderBy("createdAt", "desc").get();
+
+  if (snapshot.empty) {
+    feed.innerHTML = "<p style='text-align:center;'>No pings yet. Be the first!</p>";
+    return;
+  }
+
+  feed.innerHTML = "";
+  snapshot.forEach(doc => {
+    const ping = doc.data();
+    feed.innerHTML += renderPost(doc.id, ping);
+  });
 }
 
-// Posts
-form.addEventListener("submit", async e => {
-  e.preventDefault();
-  const text = input.value.trim();
+pingBtn.addEventListener("click", async () => {
+  const text = pingInput.value.trim();
   if (!text) return;
 
   const user = auth.currentUser;
+  if (!user) return;
+
+  pingInput.value = "";
   await db.collection("pings").add({
     text,
-    user: user.email,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    likes: []
+    userId: user.uid,
+    userEmail: user.email,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    likes: 0,
+    comments: []
   });
 
-  input.value = "";
+  loadFeed();
 });
 
-function loadFeed() {
-  db.collection("pings")
-    .orderBy("timestamp", "desc")
-    .onSnapshot(snapshot => {
-      feed.innerHTML = "";
-      snapshot.forEach(doc => {
-        const ping = doc.data();
-        const id = doc.id;
-        const isLiked = ping.likes.includes(auth.currentUser.email);
 
-        const el = document.createElement("div");
-        el.className = "post";
-        el.innerHTML = `
-          <div class="meta">
-            <span>${ping.user}</span>
-            <span>${ping.timestamp?.toDate().toLocaleString() || "now"}</span>
-          </div>
-          <div class="text">${ping.text}</div>
-          <div class="actions">
-            <button onclick="toggleLike('${id}')">${isLiked ? "♥" : "♡"} ${ping.likes.length}</button>
-          </div>
-        `;
-        feed.appendChild(el);
-      });
-    });
+// ---------- Like & Comment Logic ----------
+async function likePost(id) {
+  const ref = db.collection("pings").doc(id);
+  const doc = await ref.get();
+  const data = doc.data();
+  await ref.update({ likes: (data.likes || 0) + 1 });
+  loadFeed();
 }
 
-async function toggleLike(id) {
-  const user = auth.currentUser.email;
-  const ref = db.collection("pings").doc(id);
-  const docSnap = await ref.get();
-  if (!docSnap.exists) return;
+async function addComment(id) {
+  const input = document.getElementById(`comment-${id}`);
+  const text = input.value.trim();
+  if (!text) return;
 
-  const likes = docSnap.data().likes || [];
-  if (likes.includes(user)) {
-    await ref.update({ likes: likes.filter(u => u !== user) });
-  } else {
-    await ref.update({ likes: [...likes, user] });
+  const ref = db.collection("pings").doc(id);
+  const doc = await ref.get();
+  const data = doc.data();
+
+  const newComments = data.comments || [];
+  newComments.push(text);
+
+  await ref.update({ comments: newComments });
+  loadFeed();
+}
+
+function renderPost(id, ping) {
+  let commentsHTML = "";
+  if (ping.comments && ping.comments.length > 0) {
+    ping.comments.forEach(c => {
+      commentsHTML += `<div class="comment">${c}</div>`;
+    });
   }
+
+  return `
+    <div class="post fade-in">
+      <div class="meta">
+        <span>${ping.userEmail || "Anonymous"}</span>
+        <span>${ping.createdAt ? new Date(ping.createdAt.toDate()).toLocaleString() : "..."}</span>
+      </div>
+      <div class="text">${ping.text}</div>
+      <div class="actions">
+        <button onclick="likePost('${id}')">❤️ ${ping.likes || 0}</button>
+      </div>
+      <div class="comment-section">
+        ${commentsHTML}
+        <input id="comment-${id}" class="comment-input" placeholder="Add a comment...">
+        <button class="light-btn" onclick="addComment('${id}')">Reply</button>
+      </div>
+    </div>
+  `;
+}
+
+
+// ---------- Search ----------
+searchInput.addEventListener("input", async (e) => {
+  const query = e.target.value.toLowerCase();
+  if (!query) {
+    searchResults.innerHTML = "";
+    return;
+  }
+
+  const snapshot = await db.collection("pings").get();
+  searchResults.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    const ping = doc.data();
+    if (ping.text.toLowerCase().includes(query)) {
+      searchResults.innerHTML += renderPost(doc.id, ping);
+    }
+  });
+});
+
+
+// ---------- Profile ----------
+saveProfileBtn.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const displayName = displayNameInput.value.trim();
+  const bio = bioInput.value.trim();
+
+  await db.collection("profiles").doc(user.uid).set({
+    displayName,
+    bio,
+    userEmail: user.email
+  });
+
+  showMsg("Profile saved!");
+  loadUserPings();
+});
+
+async function loadUserPings() {
+  const user = auth.currentUser;
+  const snapshot = await db.collection("pings").where("userId", "==", user.uid).get();
+
+  userPingsDiv.innerHTML = "";
+  snapshot.forEach(doc => {
+    const ping = doc.data();
+    userPingsDiv.innerHTML += renderPost(doc.id, ping);
+  });
+}
+
+
+// ---------- Navigation ----------
+function setActive(btn, panel) {
+  [homeBtn, searchBtn, profileBtn].forEach(b => b.classList.remove("active"));
+  [homePanel, searchPanel, profilePanel].forEach(p => p.style.display = "none");
+
+  btn.classList.add("active");
+  panel.style.display = "block";
+}
+
+homeBtn.addEventListener("click", () => {
+  setActive(homeBtn, homePanel);
+  loadFeed();
+});
+
+searchBtn.addEventListener("click", () => {
+  setActive(searchBtn, searchPanel);
+});
+
+profileBtn.addEventListener("click", () => {
+  setActive(profileBtn, profilePanel);
+  loadUserPings();
+});
+
+
+// ---------- Utility ----------
+function showMsg(text) {
+  msg.innerText = text;
+  setTimeout(() => { msg.innerText = ""; }, 3000);
+}
+
+function showLoading(text) {
+  msg.innerHTML = `<div class="loader"></div><p>${text}</p>`;
+}
+
+function hideLoading() {
+  msg.innerHTML = "";
 }
