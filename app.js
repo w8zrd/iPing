@@ -13,8 +13,7 @@ const firebaseConfig = {
   projectId: "ipingonline",
   storageBucket: "ipingonline.firebasestorage.app",
   messagingSenderId: "880672073705",
-  appId: "1:880672073705:web:d1bce5f5b3f8cf001a4d78",
-  measurementId: "G-LN4GBVV603"
+  appId: "1:880672073705:web:d1bce5f5b3f8cf001a4d78"
 };
 
 // Initialize FirebaseApp
