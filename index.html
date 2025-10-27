@@ -7,7 +7,18 @@
 
   <!-- ====== Apple-like system fonts and CSS ====== -->
   <link rel="stylesheet" href="style.css" />
-
+<head>
+  <script src="https://www.google.com/recaptcha/enterprise.js?render=6Le4IvgrAAAAAPpeRvNuPC-y4vDoV1wCOPOlBmAS"></script>
+  <!-- Your code -->
+</head>
+<script>
+  function onClick(e) {
+    e.preventDefault();
+    grecaptcha.enterprise.ready(async () => {
+      const token = await grecaptcha.enterprise.execute('6Le4IvgrAAAAAPpeRvNuPC-y4vDoV1wCOPOlBmAS', {action: 'LOGIN'});
+    });
+  }
+</script>
   <!-- ====== Firebase SDKs ====== -->
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js"></script>
