@@ -23,12 +23,20 @@
 
 <main>
   <section id="authSection">
-    <h2>Sign in</h2>
-    <input id="email" type="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
-    <div class="auth-buttons">
-      <button id="signupBtn" class="mono-btn">Sign Up</button>
-      <button id="loginBtn" class="mono-btn">Login</button>
+    <h2>Welcome to iPing</h2>
+    <p class="muted">Log in or sign up to start pinging.</p>
+
+    <div class="auth-box">
+      <input id="email" type="email" placeholder="Email" required />
+      <input id="password" type="password" placeholder="Password" required />
+
+      <div class="auth-buttons">
+        <button id="signupBtn" class="mono-btn">Sign Up</button>
+        <button id="loginBtn" class="mono-btn">Login</button>
+      </div>
+
+      <div id="authMsg" class="auth-msg"></div>
+      <div id="loader" class="loader" style="display:none;"></div>
     </div>
   </section>
 
@@ -37,7 +45,6 @@
       <textarea id="pingInput" placeholder="What's happening?" required></textarea>
       <button type="submit" class="mono-btn">Ping</button>
     </form>
-
     <div id="feed"></div>
   </section>
 </main>

@@ -111,3 +111,34 @@ input, textarea {
   display: flex;
   gap: 0.5rem;
 }
+.auth-msg {
+  text-align: center;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  min-height: 1.2rem;
+}
+
+.loader {
+  margin: 1rem auto;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #000;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {transform: rotate(0deg);}
+  100% {transform: rotate(360deg);}
+}
+
+.fade {
+  transition: opacity 0.4s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.fade.show {
+  opacity: 1;
+  pointer-events: all;
+}
