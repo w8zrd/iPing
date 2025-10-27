@@ -94,15 +94,25 @@ loginBtn.addEventListener("click", async () => {
 });
 
 auth.onAuthStateChanged(user => {
-  if (user) {
-    authPanel.style.display = "none";
-    appPanel.style.display = "block";
-    loadFeed();
-    setActive(homeBtn, homePanel);
-  } else {
-    appPanel.style.display = "none";
-    authPanel.style.display = "block";
-  }
+  const globalLoader = document.getElementById("globalLoader");
+
+  // Show loading spinner while Firebase checks
+  globalLoader.style.display = "flex";
+  authPanel.style.display = "none";
+  appPanel.style.display = "none";
+
+  setTimeout(() => {
+    globalLoader.style.display = "none";
+    if (user) {
+      authPanel.style.display = "none";
+      appPanel.style.display = "block";
+      loadFeed();
+      setActive(homeBtn, homePanel);
+    } else {
+      appPanel.style.display = "none";
+      authPanel.style.display = "block";
+    }
+  }, 1200);
 });
 
 

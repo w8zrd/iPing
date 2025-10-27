@@ -15,67 +15,73 @@
   <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js"></script>
 </head>
 <body>
-  <!-- ============ HEADER ============ -->
-  <header class="glass-header">
-    <h1>iPing</h1>
-  </header>
+  <!-- Global Loader -->
+  <div id="globalLoader" class="center" style="display:none;">
+    <div class="loader"></div>
+    <p>Loading iPing...</p>
+  </div>
 
-  <!-- ============ AUTH PANEL ============ -->
-  <section id="authPanel" class="glass-card center fade-in">
-    <h2>Welcome to iPing</h2>
-    <p class="muted">Connect instantly. Share effortlessly.</p>
-    <input type="email" id="email" placeholder="Email address" />
-    <input type="password" id="password" placeholder="Password" />
+  <!-- Auth Panel -->
+  <div id="authPanel" class="glass-card center">
+    <h1>iPing</h1>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
     <div class="auth-buttons">
-      <button id="loginBtn" class="blue-btn">Login</button>
+      <button id="loginBtn" class="blue-btn">Log In</button>
       <button id="signupBtn" class="light-btn">Sign Up</button>
     </div>
-    <p id="authMsg" class="msg"></p>
-    <div id="loader" class="loader" style="display:none;"></div>
-  </section>
+    <div id="msg"></div>
+  </div>
 
-  <!-- ============ MAIN APP ============ -->
-  <main id="app" style="display:none;">
-    <!-- ===== Composer ===== -->
-    <div id="composer" class="glass-card composer">
-      <textarea id="pingInput" maxlength="280" placeholder="What’s happening?"></textarea>
-      <button id="pingBtn" class="blue-btn">Ping</button>
+  <!-- App Panel (hidden until login) -->
+  <div id="appPanel" style="display:none;">
+    <header class="glass-header">
+      <h1>iPing</h1>
+    </header>
+
+    <!-- Home -->
+    <div id="homePanel" class="glass-card" style="display:none;">
+      <div class="composer">
+        <textarea id="pingInput" placeholder="What's happening?"></textarea>
+        <button id="pingBtn" class="blue-btn">Ping</button>
+      </div>
+      <div id="feed" class="feed"></div>
     </div>
 
-    <!-- ===== Feed ===== -->
-    <div id="feed" class="feed"></div>
-  </main>
-
-  <!-- ============ SEARCH PANEL ============ -->
-  <section id="searchPanel" class="glass-card search-panel" style="display:none;">
-    <input type="text" id="searchInput" placeholder="Search pings or users..." />
-    <div id="searchResults"></div>
-  </section>
-
-  <!-- ============ PROFILE PANEL ============ -->
-  <section id="profilePanel" class="glass-card profile-panel" style="display:none;">
-    <div class="profile-avatar">
-      <img id="avatarPreview" src="https://via.placeholder.com/100" alt="Avatar" />
-      <input type="file" id="avatarInput" accept="image/*" />
+    <!-- Search -->
+    <div id="searchPanel" class="glass-card" style="display:none;">
+      <div class="search-panel">
+        <input id="searchInput" placeholder="Search pings...">
+        <div id="searchResults"></div>
+      </div>
     </div>
-    <input type="text" id="displayName" placeholder="Your display name" />
-    <textarea id="bio" placeholder="Write a short bio..."></textarea>
-    <button id="saveProfile" class="blue-btn">Save Profile</button>
-    <div class="user-pings">
-      <h3>Your Pings</h3>
-      <div id="userFeed"></div>
+
+    <!-- Profile -->
+    <div id="profilePanel" class="glass-card" style="display:none;">
+      <div class="profile-avatar">
+        <img src="https://api.dicebear.com/8.x/identicon/svg?seed=ipng" alt="avatar">
+        <input id="displayName" placeholder="Display name">
+        <textarea id="bio" placeholder="Bio..."></textarea>
+        <button id="saveProfileBtn" class="blue-btn">Save</button>
+      </div>
+      <div class="user-pings" id="userPings"></div>
     </div>
-  </section>
 
-  <!-- ============ NAVIGATION ============ -->
-  <nav class="bottom-nav glass-nav">
-    <button id="homeNav" class="nav-btn active">🏠</button>
-    <button id="searchNav" class="nav-btn">🔍</button>
-    <button id="profileNav" class="nav-btn">👤</button>
-    <button id="logoutBtn" class="nav-btn">🚪</button>
-  </nav>
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+      <button id="homeBtn" class="nav-btn active">🏠</button>
+      <button id="searchBtn" class="nav-btn">🔍</button>
+      <button id="profileBtn" class="nav-btn">👤</button>
+      <button id="logoutBtn" class="nav-btn">🚪</button>
+    </nav>
+  </div>
 
-  <!-- ============ APP SCRIPT ============ -->
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js"></script>
+
+  <!-- Your App -->
   <script src="app.js"></script>
 </body>
 </html>
