@@ -1,0 +1,501 @@
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import Navigation from '@/components/Navigation';
+import Header from '@/components/Header';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { ParsedText } from '@/lib/textParser';
+
+interface Comment {
+  id: string;
+  username: string;
+  displayName: string;
+  text: string;
+  timestamp: Date;
+  verified?: boolean;
+}
+
+interface Post {
+  id: string;
+  username: string;
+  displayName: string;
+  text: string;
+  likes: number;
+  comments: Comment[];
+  timestamp: Date;
+  verified?: boolean;
+  image?: string;
+  views: number;
+}
+
+const Home = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const postRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [highlightedPost, setHighlightedPost] = useState<string | null>(null);
+  const [posts, setPosts] = useState<Post[]>([
+    {
+      id: '1',
+      username: 'alex',
+      displayName: 'Alex Chen',
+      text: 'Loving the new iPing design! 🎨 The glass effects are absolutely stunning. #design #UI #iPing',
+      likes: 42,
+      comments: [
+        {
+          id: 'c1',
+          username: 'sarah',
+          displayName: 'Sarah Johnson',
+          text: 'Totally agree @alex! The animations are so smooth #smooth',
+          timestamp: new Date(Date.now() - 1000 * 60 * 3),
+          verified: false,
+        },
+        {
+          id: 'c2',
+          username: 'mike',
+          displayName: 'Mike Davis',
+          text: 'Apple would be proud 👏 #AppleDesign',
+          timestamp: new Date(Date.now() - 1000 * 60 * 2),
+          verified: true,
+        },
+      ],
+      timestamp: new Date(Date.now() - 1000 * 60 * 5),
+      verified: true,
+      views: 1247,
+    },
+    {
+      id: '2',
+      username: 'sarah',
+      displayName: 'Sarah Johnson',
+      text: 'Just discovered this amazing new social platform. The Apple aesthetic is 👌 Thanks @mike for the invite! #NewHere #SocialMedia',
+      likes: 28,
+      comments: [],
+      timestamp: new Date(Date.now() - 1000 * 60 * 15),
+      verified: false,
+      views: 892,
+    },
+    {
+      id: '3',
+      username: 'mike',
+      displayName: 'Mike Davis',
+      text: 'Anyone else here from the early days? This feels like the future of social media. #EarlyAdopter #Tech #iPing',
+      likes: 67,
+      comments: [
+        {
+          id: 'c3',
+          username: 'alex',
+          displayName: 'Alex Chen',
+          text: 'Been here since day one! 🚀 @mike #OG',
+          timestamp: new Date(Date.now() - 1000 * 60 * 25),
+          verified: true,
+        },
+      ],
+      timestamp: new Date(Date.now() - 1000 * 60 * 30),
+      verified: true,
+      views: 2134,
+    },
+  ]);
+  const [friendRequests, setFriendRequests] = useState<string[]>([]);
+  const [newPost, setNewPost] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
+  const [focusedCommentPost, setFocusedCommentPost] = useState<string | null>(null);
+  const [postInputFocused, setPostInputFocused] = useState(false);
+  const [postImage, setPostImage] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Handle navigation from notifications and shared links
+  useEffect(() => {
+    const postId = searchParams.get('post');
+    const shouldOpenComments = searchParams.get('openComments') === 'true';
+    
+    if (postId) {
+      setHighlightedPost(postId);
+      
+      setTimeout(() => {
+        const element = postRefs.current[postId];
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          if (shouldOpenComments) {
+            setExpandedPost(postId);
+          }
+        }
+      }, 100);
+    }
+  }, [searchParams]);
+
+  // Clear highlight on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (highlightedPost) {
+        setHighlightedPost(null);
+        setSearchParams({}, { replace: true });
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [highlightedPost, setSearchParams]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPostImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePost = () => {
+    if (!newPost.trim() && !postImage) return;
+    
+    setLoading(true);
+    
+    const post: Post = {
+      id: Date.now().toString(),
+      username: 'you',
+      displayName: 'You',
+      text: newPost,
+      likes: 0,
+      comments: [],
+      timestamp: new Date(),
+      verified: false,
+      image: postImage || undefined,
+      views: 0
+    };
+
+    setPosts([post, ...posts]);
+    setNewPost('');
+    setPostImage(null);
+    
+    toast({
+      title: 'Posted!',
+      description: 'Your ping is now live',
+    });
+    
+    setLoading(false);
+  };
+
+  const handleLike = (postId: string) => {
+    setPosts(posts.map(post => 
+      post.id === postId 
+        ? { ...post, likes: post.likes + 1 }
+        : post
+    ));
+  };
+
+  const handleComment = (postId: string) => {
+    const text = commentText[postId]?.trim();
+    if (!text) return;
+
+    const newComment: Comment = {
+      id: Date.now().toString(),
+      username: 'you',
+      displayName: 'You',
+      text,
+      timestamp: new Date(),
+    };
+
+    setPosts(posts.map(post =>
+      post.id === postId
+        ? { ...post, comments: [...post.comments, newComment] }
+        : post
+    ));
+
+    setCommentText({ ...commentText, [postId]: '' });
+    
+    toast({
+      title: 'Comment added!',
+      description: 'Your comment is now visible',
+    });
+  };
+
+  const handleFriendRequest = (username: string) => {
+    if (friendRequests.includes(username)) return;
+    
+    setFriendRequests([...friendRequests, username]);
+    toast({
+      title: 'Friend request sent!',
+      description: `Request sent to ${username}`,
+    });
+  };
+
+  const toggleComments = (postId: string) => {
+    setExpandedPost(expandedPost === postId ? null : postId);
+  };
+
+  const handleShare = async (post: Post) => {
+    const shareUrl = `${window.location.origin}/?post=${post.id}`;
+    const shareText = `Check out this ping from ${post.displayName} on iPing!`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'iPing Post',
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          // Fallback to clipboard
+          navigator.clipboard.writeText(shareUrl);
+          toast({
+            title: 'Link copied!',
+            description: 'Post link copied to clipboard',
+          });
+        }
+      }
+    } else {
+      // Fallback to clipboard
+      navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: 'Link copied!',
+        description: 'Post link copied to clipboard',
+      });
+    }
+  };
+
+  return (
+    <div className="min-h-screen pb-32">
+      <div className={focusedCommentPost || postInputFocused ? 'blur-sm pointer-events-none' : ''}>
+        <Header />
+      </div>
+      <div className="max-w-2xl mx-auto p-4">
+        <div className={`mb-8 pt-24 animate-fade-in ${postInputFocused ? 'blur-sm pointer-events-none' : ''}`}>
+          <p className="text-muted-foreground">Connect with friends</p>
+        </div>
+
+        <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
+          <Textarea
+            placeholder="What's on your mind?"
+            value={newPost}
+            onChange={(e) => setNewPost(e.target.value)}
+            onFocus={() => setPostInputFocused(true)}
+            onBlur={() => setPostInputFocused(false)}
+            className="min-h-[100px] rounded-2xl border-border/50 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple mb-4"
+          />
+          {postImage && (
+            <div className="relative mb-4">
+              <img src={postImage} alt="Upload preview" className="rounded-2xl max-h-64 w-full object-cover" />
+              <button
+                onClick={() => setPostImage(null)}
+                className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full p-1.5 hover:bg-background transition-apple"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <label className="flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 rounded-2xl"
+                onClick={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+                }}
+              >
+                <ImageIcon className="h-5 w-5 mr-2" />
+                Image
+              </Button>
+            </label>
+            <Button
+              onClick={handlePost}
+              disabled={loading || (!newPost.trim() && !postImage)}
+              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple"
+            >
+              {loading ? 'Posting...' : 'Ping'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {posts.map((post, index) => (
+            <div
+              key={post.id}
+              ref={(el) => (postRefs.current[post.id] = el)}
+              className={`glass rounded-3xl p-6 shadow-md hover-lift animate-fade-in transition-all ${
+                (focusedCommentPost && focusedCommentPost !== post.id) || postInputFocused ? 'blur-sm pointer-events-none' : ''
+              } ${
+                highlightedPost === post.id ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''
+              }`}
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              <div className="flex items-start gap-3 mb-3">
+                <button
+                  onClick={() => navigate(`/profile/${post.username}`)}
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold text-sm hover:scale-105 transition-apple relative"
+                >
+                  {post.displayName?.[0]?.toUpperCase() || 'U'}
+                  {(post.username === 'alex' || post.username === 'mike') && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
+                  )}
+                </button>
+                 <div className="flex-1">
+                   <div className="flex items-center gap-2 flex-wrap">
+                     <div className="flex items-center gap-1.5">
+                       <button
+                         onClick={() => navigate(`/profile/${post.username}`)}
+                         className="font-semibold hover:text-primary transition-apple"
+                       >
+                         {post.displayName}
+                       </button>
+                        {post.verified && (
+                          <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
+                            <Check className="h-3 w-3 text-white stroke-[3]" />
+                          </div>
+                        )}
+                     </div>
+                     {post.username !== 'you' && (
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => handleFriendRequest(post.username)}
+                         disabled={friendRequests.includes(post.username)}
+                         className="h-6 text-xs ml-auto rounded-full"
+                       >
+                         <UserPlus className="h-3 w-3 mr-1" />
+                         {friendRequests.includes(post.username) ? 'Requested' : 'Add'}
+                       </Button>
+                     )}
+                   </div>
+                   <p className="text-xs text-muted-foreground">
+                     @{post.username} · {post.timestamp.toLocaleString()}
+                   </p>
+                 </div>
+              </div>
+              
+              <p className="mb-4 text-foreground/90">
+                <ParsedText text={post.text} />
+              </p>
+              
+              {post.image && (
+                <img 
+                  src={post.image} 
+                  alt="Post image" 
+                  className="rounded-2xl w-full mb-4 max-h-96 object-cover"
+                />
+              )}
+              
+              <div className="flex items-center gap-6 mb-4">
+                <button
+                  onClick={() => handleLike(post.id)}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-destructive transition-apple group"
+                >
+                  <Heart className="h-5 w-5 group-hover:animate-bounce-subtle" />
+                  <span className="text-sm font-medium">{post.likes}</span>
+                </button>
+                <button
+                  onClick={() => toggleComments(post.id)}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{post.comments.length}</span>
+                </button>
+                <button
+                  onClick={() => handleShare(post)}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
+                >
+                  <Share2 className="h-5 w-5" />
+                </button>
+                <div className="flex items-center gap-2 text-muted-foreground ml-auto">
+                  <Eye className="h-5 w-5" />
+                  <span className="text-sm font-medium">{post.views.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {expandedPost === post.id && (
+                <div className="mt-4 pt-4 border-t border-border/50 animate-fade-in space-y-4">
+                  {post.comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-3">
+                      <button
+                        onClick={() => navigate(`/profile/${comment.username}`)}
+                        className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-muted flex items-center justify-center text-foreground font-semibold text-xs hover:scale-105 transition-apple relative"
+                      >
+                        {comment.displayName?.[0]?.toUpperCase() || 'U'}
+                        {(comment.username === 'alex' || comment.username === 'mike') && (
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background" />
+                        )}
+                      </button>
+                       <div className="flex-1">
+                         <div className="flex items-center gap-2 mb-1">
+                           <div className="flex items-center gap-1.5">
+                             <button
+                               onClick={() => navigate(`/profile/${comment.username}`)}
+                               className="font-semibold text-sm hover:text-primary transition-apple"
+                             >
+                               {comment.displayName}
+                             </button>
+                              {comment.verified && (
+                                <div className="flex items-center justify-center w-3.5 h-3.5 bg-primary rounded-full">
+                                  <Check className="h-2.5 w-2.5 text-white stroke-[3]" />
+                                </div>
+                              )}
+                           </div>
+                           <span className="text-xs text-muted-foreground">
+                             @{comment.username} · {comment.timestamp.toLocaleTimeString()}
+                           </span>
+                         </div>
+                          <p className="text-sm text-foreground/90">
+                            <ParsedText text={comment.text} />
+                          </p>
+                       </div>
+                    </div>
+                  ))}
+                  
+                  <div className="relative mt-4">
+                    <Input
+                      placeholder="Add a comment..."
+                      value={commentText[post.id] || ''}
+                      onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })}
+                      onFocus={() => setFocusedCommentPost(post.id)}
+                      onBlur={() => setFocusedCommentPost(null)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleComment(post.id);
+                        }
+                      }}
+                      className="h-12 pr-12 rounded-3xl glass-strong border-border/50 transition-apple px-4"
+                    />
+                    <button
+                      onClick={() => handleComment(post.id)}
+                      disabled={!commentText[post.id]?.trim()}
+                      className={`absolute right-4 top-1/2 -translate-y-1/2 transition-apple ${
+                        commentText[post.id]?.trim() 
+                          ? 'text-primary hover:scale-110' 
+                          : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <Send className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={focusedCommentPost ? 'blur-sm pointer-events-none' : ''}>
+        <Navigation />
+      </div>
+    </div>
+  );
+};
+
+export default Home;
