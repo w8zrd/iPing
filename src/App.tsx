@@ -44,9 +44,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter
-              basename={import.meta.env.PROD && import.meta.env.BASE_URL ? import.meta.env.BASE_URL : undefined}
-            >
+            <BrowserRouter>
               <Routes>
                 <Route path="/auth" element={<SupabaseAuth />} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
