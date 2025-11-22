@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowLeft, UserPlus, Check, Settings, Calendar, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import NotFound from '@/pages/NotFound';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -57,8 +58,6 @@ const Profile = () => {
   const isOwnProfile = !urlUsername;
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-
     if (authLoading) return;
     
     const targetUsername = urlUsername || authUser?.user_metadata.username as string;

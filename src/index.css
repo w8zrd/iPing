@@ -119,6 +119,13 @@ All colors MUST be HSL.
   }
 }
 
+/* Fix for mobile input zoom */
+@media (max-width: 768px) {
+  input[type="text"], input[type="email"], input[type="password"], textarea, select {
+    font-size: 16px !important;
+  }
+}
+
 @layer utilities {
   /* Glass morphism utilities */
   .glass {
