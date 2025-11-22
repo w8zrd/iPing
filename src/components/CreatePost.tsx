@@ -1,13 +1,35 @@
 import React, { useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const CreatePost: React.FC = () => {
+  const { user } = useAuth();
   const [content, setContent] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle post creation logic here
-    console.log('New post:', content);
-    setContent('');
+    if (!content.trim() || !user || isPosting) return;
+
+    setIsPosting(true);
+    
+    const { error } = await supabase
+      .from('posts')
+      .insert([
+        { user_id: user.id, content: content.trim() }
+      ]);
+      
+    setIsPosting(false);
+
+    if (error) {
+      console.error('Error creating post:', error);
+      // We need a better error handling mechanism, but for debug now:
+      alert(`Post creation failed: ${error.message}`);
+    } else {
+      setContent('');
+      console.log('Post created successfully!');
+      // Assuming a mechanism exists to refresh the feed
+    }
   };
 
   return (
@@ -21,9 +43,14 @@ const CreatePost: React.FC = () => {
         />
         <button
           type="submit"
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg mt-2 hover:bg-blue-600"
+          disabled={isPosting || !content.trim() || !user}
+          className={`px-4 py-2 rounded-lg mt-2 transition-colors ${
+            isPosting || !content.trim() || !user
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-500 text-white hover:bg-blue-600'
+          }`}
         >
-          Post
+          {isPosting ? 'Posting...' : 'Post'}
         </button>
       </form>
     </div>
