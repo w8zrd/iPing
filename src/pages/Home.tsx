@@ -62,59 +62,73 @@ const Home = () => {
 
   useEffect(() => {
     const fetchAllData = async () => {
-      setIsFetchingPosts(true);
-      setFetchError(null);
-      
-      // --- Fetch Posts ---
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select(
-          '*, profiles(username, display_name, verified), likes_count:likes(count), comments_count:comments(count)'
-        )
-        .order('created_at', { ascending: false });
+      console.log('--- STARTING DATA FETCH ---');
+      try {
+        setIsFetchingPosts(true);
+        setFetchError(null);
+        
+        // --- Fetch Posts ---
+        console.log('Fetching posts...');
+        const { data: postsData, error: postsError } = await supabase
+          .from('posts')
+          .select(
+            '*, profiles(username, display_name, verified), likes_count:likes(count), comments_count:comments(count)'
+          )
+          .order('created_at', { ascending: false });
+          console.log('Posts query finished.');
 
-      if (postsError) {
-        console.error('Error fetching posts:', postsError);
-        setFetchError('Failed to load feed posts.');
-        setIsFetchingPosts(false);
-        return;
-      }
-      setPosts(postsData as Post[]);
-
-      // --- Fetch Follows ---
-      if (user) {
-        const { data: followsData, error: followsError } = await supabase
-          .from('follows')
-          .select('following_id, profiles!follows_following_id_fkey(username)')
-          .eq('follower_id', user.id);
-
-        if (followsError) {
-          console.error('Error fetching follows:', followsError);
-        } else if (followsData) {
-          const followedUsernames = followsData.map((follow) => {
-            const profile = follow.profiles as { username: string } | null;
-            return profile ? profile.username : null;
-          }).filter((username): username is string => username !== null);
-          setFriendRequests(followedUsernames);
+        if (postsError) {
+          console.error('Error fetching posts:', postsError);
+          setFetchError('Failed to load feed posts.');
+          setIsFetchingPosts(false);
+          return;
         }
-      }
+        setPosts(postsData as Post[]);
 
-      // --- Fetch Likes ---
-      if (user) {
-        const { data: likesData, error: likesError } = await supabase
-          .from('likes')
-          .select('post_id')
-          .eq('user_id', user.id);
+        // --- Fetch Follows ---
+        if (user) {
+          console.log('Fetching follows...');
+          const { data: followsData, error: followsError } = await supabase
+            .from('follows')
+            .select('following_id, profiles!follows_following_id_fkey(username)')
+            .eq('follower_id', user.id);
+          console.log('Follows query finished.');
 
-        if (likesError) {
-          console.error('Error fetching likes:', likesError);
-        } else if (likesData) {
-          const likedPostIds = likesData.map((like) => like.post_id);
-          setLikedPosts(likedPostIds);
+          if (followsError) {
+            console.error('Error fetching follows:', followsError);
+          } else if (followsData) {
+            const followedUsernames = followsData.map((follow) => {
+              const profile = follow.profiles as { username: string } | null;
+              return profile ? profile.username : null;
+            }).filter((username): username is string => username !== null);
+            setFriendRequests(followedUsernames);
+          }
         }
+
+        // --- Fetch Likes ---
+        if (user) {
+          console.log('Fetching likes...');
+          const { data: likesData, error: likesError } = await supabase
+            .from('likes')
+            .select('post_id')
+            .eq('user_id', user.id);
+          console.log('Likes query finished.');
+
+          if (likesError) {
+            console.error('Error fetching likes:', likesError);
+          } else if (likesData) {
+            const likedPostIds = likesData.map((like) => like.post_id);
+            setLikedPosts(likedPostIds);
+          }
+        }
+        
+        console.log('--- DATA FETCH COMPLETE ---');
+      } catch (e) {
+        console.error('UNCAUGHT EXCEPTION IN fetchAllData:', e);
+        setFetchError('An unexpected error occurred: Check console for details.');
+      } finally {
+         setIsFetchingPosts(false);
       }
-      
-      setIsFetchingPosts(false);
     };
 
     fetchAllData();
