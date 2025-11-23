@@ -38,6 +38,25 @@ interface Post {
   };
 }
 
+// Component to display skeleton loader for a single post
+const PostSkeleton = () => (
+  <div className="glass rounded-3xl p-6 shadow-md animate-pulse space-y-3">
+    <div className="flex items-center gap-3">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <div className="flex-1 space-y-1">
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-3 w-1/4" />
+      </div>
+    </div>
+    <Skeleton className="h-4 w-full" />
+    <Skeleton className="h-4 w-11/12" />
+    <div className="flex items-center gap-6 pt-2">
+      <Skeleton className="h-5 w-16" />
+      <Skeleton className="h-5 w-16" />
+    </div>
+  </div>
+);
+
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,79 +79,77 @@ const Home = () => {
   const [postImage, setPostImage] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchAllData = async () => {
-      console.log('--- STARTING DATA FETCH ---');
-      try {
-        setIsFetchingPosts(true);
-        setFetchError(null);
-        
-        // --- Fetch Posts ---
-        console.log('Fetching posts...');
-        const { data: postsData, error: postsError } = await supabase
-          .from('posts')
-          .select(
-            '*, profiles(username, display_name, verified), likes_count:likes(count), comments_count:comments(count)'
-          )
-          .order('created_at', { ascending: false });
-          console.log('Posts query finished.');
+useEffect(() => {
+  const fetchAllData = async () => {
+    try {
+      setIsFetchingPosts(true);
+      setFetchError(null);
+      
+      // --- Fetch Posts ---
+      const { data: postsData, error: postsError } = await supabase
+        .from('posts')
+        .select(
+          '*, profiles(username, display_name, verified), likes_count:likes(count), comments_count:comments(count)'
+        )
+        .order('created_at', { ascending: false });
 
-        if (postsError) {
-          console.error('Error fetching posts:', postsError);
-          setFetchError('Failed to load feed posts.');
-          setIsFetchingPosts(false);
-          return;
-        }
-        setPosts(postsData as Post[]);
-
-        // --- Fetch Follows ---
-        if (user) {
-          console.log('Fetching follows...');
-          const { data: followsData, error: followsError } = await supabase
-            .from('follows')
-            .select('following_id, profiles!follows_following_id_fkey(username)')
-            .eq('follower_id', user.id);
-          console.log('Follows query finished.');
-
-          if (followsError) {
-            console.error('Error fetching follows:', followsError);
-          } else if (followsData) {
-            const followedUsernames = followsData.map((follow) => {
-              const profile = follow.profiles as { username: string } | null;
-              return profile ? profile.username : null;
-            }).filter((username): username is string => username !== null);
-            setFriendRequests(followedUsernames);
-          }
-        }
-
-        // --- Fetch Likes ---
-        if (user) {
-          console.log('Fetching likes...');
-          const { data: likesData, error: likesError } = await supabase
-            .from('likes')
-            .select('post_id')
-            .eq('user_id', user.id);
-          console.log('Likes query finished.');
-
-          if (likesError) {
-            console.error('Error fetching likes:', likesError);
-          } else if (likesData) {
-            const likedPostIds = likesData.map((like) => like.post_id);
-            setLikedPosts(likedPostIds);
-          }
-        }
-        
-        console.log('--- DATA FETCH COMPLETE ---');
-      } catch (e) {
-        console.error('UNCAUGHT EXCEPTION IN fetchAllData:', e);
-        setFetchError('An unexpected error occurred: Check console for details.');
-      } finally {
-         setIsFetchingPosts(false);
+      if (postsError) {
+        console.error('Error fetching posts:', postsError);
+        setFetchError('Failed to load feed posts.');
+        setIsFetchingPosts(false);
+        return;
       }
-    };
+      setPosts(postsData as Post[]);
 
-    fetchAllData();
-  }, [user]);
+      // --- Fetch Follows ---
+      if (user) {
+        const { data: followsData, error: followsError } = await supabase
+          .from('follows')
+          .select('following_id, profiles!follows_following_id_fkey(username)')
+          .eq('follower_id', user.id);
+
+        if (followsError) {
+          console.error('Error fetching follows:', followsError);
+        } else if (followsData) {
+          const followedUsernames = followsData.map((follow) => {
+            const profile = follow.profiles as { username: string } | { username: string }[] | null;
+            
+            if (!profile) return null;
+
+            const profileObj = Array.isArray(profile) ? profile[0] : profile;
+
+            return profileObj?.username ?? null;
+          }).filter((username): username is string => username !== null);
+          setFriendRequests(followedUsernames);
+        }
+      }
+
+      // --- Fetch Likes ---
+      if (user) {
+        const { data: likesData, error: likesError } = await supabase
+          .from('likes')
+          .select('post_id')
+          .eq('user_id', user.id);
+
+        if (likesError) {
+          console.error('Error fetching likes:', likesError);
+        } else if (likesData) {
+          const likedPostIds = likesData.map((like) => like.post_id);
+          setLikedPosts(likedPostIds);
+        }
+      }
+      
+    } catch (e) {
+      // Catches unexpected synchronous errors during component mount/update
+      console.error('UNCAUGHT SYNCHRONOUS EXCEPTION during data fetch:', e);
+      setFetchError('An unexpected critical error occurred.');
+    } finally {
+       setIsFetchingPosts(false);
+    }
+  };
+
+  fetchAllData();
+}, [user]);
 
   useEffect(() => {
     if (!expandedPost || commentsByPost[expandedPost]) return;
@@ -539,155 +556,158 @@ const Home = () => {
         </div>
 
         <div className="space-y-4">
-          {isFetchingPosts ? (
-            <div className="space-y-4">
-              {/* SKELETONS will be implemented later, for now just show loading text */}
-              {Array.from({ length: 3 }).map((_, i) => (
-                <PostSkeleton key={i} />
-              ))}
-            </div>
-          ) : posts.length === 0 ? (
-            <p className="text-center text-muted-foreground pt-12">No posts found. Start following users or post something new!</p>
-          ) : (
-            posts.map((post, index) => (
-              <div
-                key={post.id}
-                ref={(el) => (postRefs.current[post.id] = el)}
-                className={`glass rounded-3xl p-6 shadow-md hover-lift animate-fade-in transition-all ${
-                  (focusedCommentPost && focusedCommentPost !== post.id) || postInputFocused ? 'blur-sm pointer-events-none' : ''
-                } ${
-                  highlightedPost === post.id ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''
-                }`}
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <div className="flex items-start gap-3 mb-3">
-                  <button
-                    onClick={() => navigate(`/profile/${post.profiles.username}`)}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold text-sm hover:scale-105 transition-apple relative"
-                  >
-                    {post.profiles.display_name?.[0]?.toUpperCase() || 'U'}
-                    {(post.profiles.username === 'alex' || post.profiles.username === 'mike') && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
-                    )}
-                  </button>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => navigate(`/profile/${post.profiles.username}`)}
-                          className="font-semibold hover:text-primary transition-apple"
-                        >
-                          {post.profiles.display_name}
-                        </button>
-                         {post.profiles.verified && (
-                           <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
-                             <Check className="h-3 w-3 text-white stroke-[3]" />
-                           </div>
-                         )}
-                      </div>
-                      {post.profiles.username !== 'you' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleFriendRequest(post.profiles.username)}
-                          disabled={friendRequests.includes(post.profiles.username)}
-                          className="h-6 text-xs ml-auto rounded-full"
-                        >
-                          <UserPlus className="h-3 w-3 mr-1" />
-                          {friendRequests.includes(post.profiles.username) ? 'Requested' : 'Add'}
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      @{post.profiles.username} · {new Date(post.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                
-                <p className="mb-4 text-foreground/90">
-                  <ParsedText text={post.content} />
-                </p>
-                
-                {post.image_url && (
-                  <img
-                    src={post.image_url}
-                    alt="Post image"
-                    className="rounded-2xl w-full mb-4 max-h-96 object-cover"
-                  />
-                )}
-                
-                <div className="flex items-center gap-6 mb-4">
-                  <button
-                    onClick={() => handleLike(post.id)}
-                    className={`flex items-center gap-2 transition-apple group ${
-                      likedPosts.includes(post.id)
-                        ? 'text-destructive'
-                        : 'text-muted-foreground hover:text-destructive'
-                    }`}
-                  >
-                    <Heart
-                      className={`h-5 w-5 ${
-                        likedPosts.includes(post.id)
-                          ? 'fill-destructive'
-                          : 'group-hover:animate-bounce-subtle'
-                      }`}
-                    />
-                    <span className="text-sm font-medium">{post.likes_count}</span>
-                  </button>
-                  <button
-                    onClick={() => toggleComments(post.id)}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    <span className="text-sm font-medium">0</span>
-                  </button>
-                  <button
-                    onClick={() => handleShare(post)}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </button>
-                  <div className="flex items-center gap-2 text-muted-foreground ml-auto">
-                    <Eye className="h-5 w-5" />
-                    <span className="text-sm font-medium">{post.views.toLocaleString()}</span>
-                  </div>
-                </div>
- 
-                {expandedPost === post.id && (
-                  <div className="mt-4 pt-4 border-t border-border/50 animate-fade-in space-y-4">
-                    {/* TODO: Implement comments */}
-                    <div className="relative mt-4">
-                      <Input
-                        placeholder="Add a comment..."
-                        value={commentText[post.id] || ''}
-                        onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })}
-                        onFocus={() => setFocusedCommentPost(post.id)}
-                        onBlur={() => setFocusedCommentPost(null)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleComment(post.id);
-                          }
-                        }}
-                        className="h-12 pr-12 rounded-3xl glass-strong border-border/50 transition-apple px-4"
-                      />
-                      <button
-                        onClick={() => handleComment(post.id)}
-                        disabled={!commentText[post.id]?.trim()}
-                        className={`absolute right-4 top-1/2 -translate-y-1/2 transition-apple ${
-                          commentText[post.id]?.trim()
-                            ? 'text-primary hover:scale-110'
-                            : 'text-muted-foreground opacity-50 cursor-not-allowed'
-                        }`}
-                      >
-                        <Send className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+{isFetchingPosts ? (
+  <div className="space-y-4">
+    {/* SKELETONS will be implemented later, for now just show loading text */}
+    {Array.from({ length: 3 }).map((_, i) => (
+      <PostSkeleton key={i} />
+    ))}
+  </div>
+) : posts.length === 0 ? (
+  <p className="text-center text-muted-foreground pt-12">No posts found. Start following users or post something new!</p>
+) : (
+  posts.map((post, index) => {
+    const profile = post.profiles;
+    if (!profile) return null; // Defensive check for missing profile data
+    
+    return (
+      <div
+        key={post.id}
+        ref={(el) => (postRefs.current[post.id] = el)}
+        className={`glass rounded-3xl p-6 shadow-md hover-lift animate-fade-in transition-all ${
+          (focusedCommentPost && focusedCommentPost !== post.id) || postInputFocused ? 'blur-sm pointer-events-none' : ''
+        } ${
+          highlightedPost === post.id ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''
+        }`}
+        style={{ animationDelay: `${index * 0.05}s` }}
+      >
+        <div className="flex items-start gap-3 mb-3">
+          <button
+            onClick={() => navigate(`/profile/${profile.username}`)}
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold text-sm hover:scale-105 transition-apple relative"
+          >
+            {profile.display_name?.[0]?.toUpperCase() || 'U'}
+            {(profile.username === 'alex' || profile.username === 'mike') && (
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
+            )}
+          </button>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => navigate(`/profile/${profile.username}`)}
+                  className="font-semibold hover:text-primary transition-apple"
+                >
+                  {profile.display_name}
+                </button>
+                 {profile.verified && (
+                   <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
+                     <Check className="h-3 w-3 text-white stroke-[3]" />
+                   </div>
+                 )}
               </div>
-            ))
-          )}
+              {profile.username !== 'you' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleFriendRequest(profile.username)}
+                  disabled={friendRequests.includes(profile.username)}
+                  className="h-6 text-xs ml-auto rounded-full"
+                >
+                  <UserPlus className="h-3 w-3 mr-1" />
+                  {friendRequests.includes(profile.username) ? 'Requested' : 'Add'}
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              @{profile.username} · {new Date(post.created_at).toLocaleString()}
+            </p>
+          </div>
+        </div>
+        
+        <p className="mb-4 text-foreground/90">
+          <ParsedText text={post.content} />
+        </p>
+        
+        {post.image_url && (
+          <img
+            src={post.image_url}
+            alt="Post image"
+            className="rounded-2xl w-full mb-4 max-h-96 object-cover"
+          />
+        )}
+        
+        <div className="flex items-center gap-6 mb-4">
+          <button
+            onClick={() => handleLike(post.id)}
+          className={`flex items-center gap-2 transition-apple group ${
+            likedPosts.includes(post.id)
+              ? 'text-destructive'
+              : 'text-muted-foreground hover:text-destructive'
+          }`}
+        >
+          <Heart
+            className={`h-5 w-5 ${
+              likedPosts.includes(post.id)
+                ? 'fill-destructive'
+                : 'group-hover:animate-bounce-subtle'
+            }`}
+          />
+          <span className="text-sm font-medium">{post.likes_count}</span>
+        </button>
+        <button
+          onClick={() => toggleComments(post.id)}
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
+        >
+          <MessageCircle className="h-5 w-5" />
+          <span className="text-sm font-medium">0</span>
+        </button>
+        <button
+          onClick={() => handleShare(post)}
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
+        >
+          <Share2 className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2 text-muted-foreground ml-auto">
+          <Eye className="h-5 w-5" />
+          <span className="text-sm font-medium">{post.views.toLocaleString()}</span>
+        </div>
+
+        {expandedPost === post.id && (
+          <div className="mt-4 pt-4 border-t border-border/50 animate-fade-in space-y-4">
+            {/* TODO: Implement comments */}
+            <div className="relative mt-4">
+              <Input
+                placeholder="Add a comment..."
+                value={commentText[post.id] || ''}
+                onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })}
+                onFocus={() => setFocusedCommentPost(post.id)}
+                onBlur={() => setFocusedCommentPost(null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleComment(post.id);
+                  }
+                }}
+                className="h-12 pr-12 rounded-3xl glass-strong border-border/50 transition-apple px-4"
+              />
+              <button
+                onClick={() => handleComment(post.id)}
+                disabled={!commentText[post.id]?.trim()}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 transition-apple ${
+                  commentText[post.id]?.trim()
+                    ? 'text-primary hover:scale-110'
+                    : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+  );
+})}
         </div>
       </div>
 
