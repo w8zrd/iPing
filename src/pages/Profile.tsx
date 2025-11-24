@@ -55,7 +55,7 @@ const Profile = () => {
   const [friendRequested, setFriendRequested] = useState(false);
   const { toast } = useToast();
 
-  const isOwnProfile = !urlUsername;
+  const isOwnProfile = authUser?.user_metadata.username === urlUsername;
 
   useEffect(() => {
     if (authLoading) return;

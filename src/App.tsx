@@ -44,12 +44,13 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <Routes>
                 <Route path="/auth" element={<SupabaseAuth />} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/profile/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/:username/post/:postId" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/search" element={<ProtectedRoute><SearchResults /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
                 <Route path="/chats" element={<ProtectedRoute><Chats /></ProtectedRoute>} />
