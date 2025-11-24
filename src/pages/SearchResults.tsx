@@ -160,7 +160,7 @@ const SearchResults = () => {
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Posts</h2>
             <div className="space-y-4">
-              {filteredPosts.map((post, index) => (
+              {filteredPings.map((post, index) => (
                 <div
                   key={post.id}
                   className="glass rounded-3xl p-6 shadow-md animate-fade-in"
