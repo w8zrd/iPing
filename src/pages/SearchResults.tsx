@@ -156,7 +156,7 @@ const SearchResults = () => {
           </div>
         )}
 
-        {filteredPosts.length > 0 && (
+        {filteredPings.length > 0 && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Posts</h2>
             <div className="space-y-4">
