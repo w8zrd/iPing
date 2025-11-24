@@ -10,6 +10,7 @@ import NotFound from '@/pages/NotFound';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import AuthModal from '@/components/AuthModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Supabase Data Types
@@ -52,66 +53,89 @@ const Profile = () => {
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [friendRequested, setFriendRequested] = useState(false);
+  const [friendRequested, setFriendRequested] = useState(false); // Indicates if a request was just sent by the current user
+  const [existingFriendRequest, setExistingFriendRequest] = useState(false); // Indicates if there's an existing request
   const { toast } = useToast();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  const isOwnProfile = authUser?.user_metadata.username === urlUsername;
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
 
-  useEffect(() => {
-    if (authLoading) return;
-    
-    const targetUsername = urlUsername || authUser?.user_metadata.username as string;
+ const isOwnProfile = authUser?.user_metadata.username === urlUsername;
 
-    const fetchProfile = async (targetUser: string) => {
-      setLoading(true);
-      
-      // 1. Fetch Profile Data
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select(`id, username, display_name, bio, verified, location, created_at`)
-        .eq('username', targetUser)
-        .single();
-        
-      if (profileError || !profileData) {
-        console.error('Error fetching profile or profile not found:', profileError);
-        setUserProfile(null);
-        setLoading(false);
-        return;
-      }
-      
-      // 2. Fetch User Posts
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select(`id, content, created_at`)
-        .eq('user_id', profileData.id)
-        .order('created_at', { ascending: false });
+ useEffect(() => {
+   if (authLoading) return;
+   
+   const targetUsername = urlUsername || authUser?.user_metadata.username as string;
 
-      if (postsError) {
-         console.error('Error fetching posts:', postsError);
-         // Continue with profile data but empty posts
-      }
+   const fetchProfile = async (targetUser: string) => {
+     setLoading(true);
+     
+     // 1. Fetch Profile Data
+     const { data: profileData, error: profileError } = await supabase
+       .from('profiles')
+       .select(`id, username, display_name, bio, verified, location, created_at`)
+       .eq('username', targetUser)
+       .single();
+       
+     if (profileError || !profileData) {
+       console.error('Error fetching profile or profile not found:', profileError);
+       setUserProfile(null);
+       setLoading(false);
+       return;
+     }
+     
+     // 2. Fetch User Posts
+     const { data: postsData, error: postsError } = await supabase
+       .from('posts')
+       .select(`id, content, created_at`)
+       .eq('user_id', profileData.id)
+       .order('created_at', { ascending: false });
 
-      setUserProfile({
-        ...profileData,
-        posts: postsData || [],
-      } as UserProfile);
-      setLoading(false);
-    };
+     if (postsError) {
+        console.error('Error fetching posts:', postsError);
+        // Continue with profile data but empty posts
+     }
 
-    if (targetUsername) {
-      fetchProfile(targetUsername);
-    } else if (isOwnProfile && authUser) {
-        // If logged in but username not in URL, use auth user's username
-        fetchProfile(authUser.user_metadata.username as string);
-    } else if (!isOwnProfile && !urlUsername) {
-        // Should not happen if protected route works
-        setUserProfile(null);
-        setLoading(false);
-    } else if (isOwnProfile && !authUser) {
-        navigate('/auth'); // Must be logged in to view own profile
-    }
+     // 3. Check for existing friend request from authUser to this profile
+     if (authUser && authUser.id !== profileData.id) {
+       const { data: friendRequestData, error: friendRequestError } = await supabase
+         .from('friend_requests')
+         .select('id')
+         .eq('from_user_id', authUser.id)
+         .eq('to_user_id', profileData.id)
+         .single();
 
-  }, [urlUsername, authLoading, authUser, navigate, isOwnProfile]);
+       if (friendRequestError && friendRequestError.code !== 'PGRST116') { // PGRST116 means no rows found
+         console.error('Error checking existing friend request:', friendRequestError);
+       }
+
+       setExistingFriendRequest(!!friendRequestData);
+     } else {
+       setExistingFriendRequest(false);
+     }
+
+     setUserProfile({
+       ...profileData,
+       posts: postsData || [],
+     } as UserProfile);
+     setLoading(false);
+   };
+
+   if (targetUsername) {
+     fetchProfile(targetUsername);
+   } else if (isOwnProfile && authUser) {
+       // If logged in but username not in URL, use auth user's username
+       fetchProfile(authUser.user_metadata.username as string);
+   } else if (!isOwnProfile && !urlUsername) {
+       // Should not happen if protected route works
+       setUserProfile(null);
+       setLoading(false);
+   } else if (isOwnProfile && !authUser) {
+       navigate('/auth'); // Must be logged in to view own profile
+   }
+
+ }, [urlUsername, authLoading, authUser, navigate, isOwnProfile]);
 
   if (loading || authLoading) {
     return (
@@ -128,12 +152,44 @@ const Profile = () => {
     return <NotFound />;
   }
 
-  const handleFriendRequest = () => {
-    setFriendRequested(true);
-    toast({
-      title: 'Friend request sent!',
-      description: `Request sent to ${profile.display_name}`,
+  const handleFriendRequest = async () => {
+    if (!authUser) {
+      openAuthModal();
+      return;
+    }
+
+    if (authUser.id === profile.id) {
+      toast({
+        title: 'Error',
+        description: "You cannot send a friend request to yourself.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true); // Indicate loading while sending request
+
+    const { error } = await supabase.from('friend_requests').insert({
+      from_user_id: authUser.id,
+      to_user_id: profile.id,
     });
+
+    setLoading(false); // End loading
+
+    if (error) {
+      console.error('Error sending friend request:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to send friend request: ${error.message}`,
+        variant: "destructive",
+      });
+    } else {
+      setFriendRequested(true);
+      toast({
+        title: 'Friend request sent!',
+        description: `Request sent to ${profile.display_name}`,
+      });
+    }
   };
 
   return (
@@ -192,15 +248,21 @@ const Profile = () => {
             <div className="flex gap-2 mb-4">
               <Button
                 onClick={handleFriendRequest}
-                disabled={friendRequested}
-                variant={friendRequested ? "outline" : "default"}
+                disabled={friendRequested || existingFriendRequest || loading}
+                variant={friendRequested || existingFriendRequest ? "outline" : "default"}
                 className="flex-1 rounded-full hover:scale-105 transition-apple"
               >
                 <UserPlus className="h-4 w-4 mr-2" />
-                {friendRequested ? 'Request Sent' : 'Add Friend'}
+                {loading ? 'Sending...' : (friendRequested || existingFriendRequest ? 'Request Sent' : 'Add Friend')}
               </Button>
               <Button
-                onClick={() => navigate(`/chats/${profile.username}`)}
+                onClick={() => {
+                  if (!authUser) {
+                    openAuthModal();
+                  } else {
+                    navigate(`/chats/${profile.username}`);
+                  }
+                }}
                 variant="outline"
                 className="flex-1 rounded-full hover:scale-105 transition-apple"
               >
@@ -262,6 +324,7 @@ const Profile = () => {
       </div>
 
       <Navigation />
+      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
     </div>
   );
 };

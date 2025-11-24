@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import AuthModal from '@/components/AuthModal';
 
 interface Profile {
   id: string;
@@ -57,6 +58,10 @@ const Home = () => {
   const [postImage, setPostImage] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const handleDeletePost = async (postId: string) => {
     if (!user) return;
@@ -181,8 +186,11 @@ const Home = () => {
   };
 
   const handlePost = async () => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     if (!newPost.trim() && !postImage) return;
-    if (!user) return;
     
     setLoading(true);
 
@@ -212,7 +220,10 @@ const Home = () => {
   };
 
   const handleLike = async (postId: string) => {
-    if (!user) return;
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     
     const post = posts.find(p => p.id === postId);
     const alreadyLiked = post?.likes?.some(like => like.user_id === user.id);
@@ -228,8 +239,12 @@ const Home = () => {
   };
 
   const handleComment = async (postId: string) => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     const text = commentText[postId]?.trim();
-    if (!text || !user) return;
+    if (!text) return;
 
     const { error } = await supabase.from('comments').insert({
       user_id: user.id,
@@ -254,7 +269,11 @@ const Home = () => {
   };
 
   const handleFriendRequest = async (targetUserId: string, displayName: string) => {
-    if (!user || friendRequests.includes(targetUserId)) return;
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+    if (friendRequests.includes(targetUserId)) return;
     
     const { error } = await supabase.from('friend_requests').insert({
       from_user_id: user.id,
@@ -461,9 +480,15 @@ const Home = () => {
                 </button>
                 <button
                   onClick={() => {
+                    const isExpanding = expandedPost !== post.id;
                     toggleComments(post.id);
-                    if (expandedPost !== post.id) {
+                    if (isExpanding) {
                       supabase.rpc('increment_post_views', { _post_id: post.id });
+                      setPosts((prevPosts) =>
+                        prevPosts.map((p) =>
+                          p.id === post.id ? { ...p, views: p.views + 1 } : p
+                        )
+                      );
                     }
                   }}
                   className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
@@ -552,12 +577,13 @@ const Home = () => {
           ))}
         </div>
       </div>
-
-      <div className={focusedCommentPost ? 'blur-sm pointer-events-none' : ''}>
-        <Navigation />
-      </div>
-    </div>
-  );
-};
+ 
+       <div className={focusedCommentPost ? 'blur-sm pointer-events-none' : ''}>
+         <Navigation />
+       </div>
+       <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
+     </div>
+   );
+ };
 
 export default Home;
