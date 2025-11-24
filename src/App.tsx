@@ -77,7 +77,7 @@ const App = () => {
                 <Route path="/" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
                 <Route path="/:username" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
                 <Route path="/profile" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
-                <Route path="/:username/post/:postId" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
+                <Route path="/:username/ping/:pingId" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
                 <Route path="/search" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><SearchResults /></AuthRequiredWrapper>} />
                 <Route path="/notifications" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Notifications /></AuthRequiredWrapper>} />
                 <Route path="/chats" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Chats /></AuthRequiredWrapper>} />

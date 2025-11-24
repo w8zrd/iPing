@@ -1,11 +1,11 @@
-CREATE OR REPLACE FUNCTION public.increment_post_views(_post_id UUID)
+CREATE OR REPLACE FUNCTION public.increment_ping_views(_ping_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  UPDATE public.posts
+  UPDATE public.pings
   SET views = views + 1
-  WHERE id = _post_id;
+  WHERE id = _ping_id;
 END;
 $$;

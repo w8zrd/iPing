@@ -20,7 +20,7 @@ const mockMessages: Message[] = [
   {
     id: '1',
     senderId: 'alex',
-    text: 'Hey! Thanks for connecting! Love your posts about #design 🎨',
+    text: 'Hey! Thanks for connecting! Love your pings about #design 🎨',
     timestamp: new Date(Date.now() - 1000 * 60 * 60),
   },
   {

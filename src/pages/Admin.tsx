@@ -23,7 +23,7 @@ const Admin = () => {
       return;
     }
 
-    const unsubscribe = onSnapshot(collection(db, 'posts'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, 'pings'), (snapshot) => {
       const uniqueUsers = new Map();
       snapshot.docs.forEach(doc => {
         const data = doc.data();

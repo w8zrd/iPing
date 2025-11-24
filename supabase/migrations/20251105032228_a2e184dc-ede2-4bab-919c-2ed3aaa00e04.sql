@@ -11,8 +11,8 @@ CREATE TABLE public.profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Create posts table
-CREATE TABLE public.posts (
+-- Create pings table
+CREATE TABLE public.pings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   content TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE public.posts (
 -- Create likes table
 CREATE TABLE public.likes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  ping_id UUID REFERENCES public.pings(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   UNIQUE(post_id, user_id)
@@ -33,7 +33,7 @@ CREATE TABLE public.likes (
 -- Create comments table
 CREATE TABLE public.comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  ping_id UUID REFERENCES public.pings(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   content TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
@@ -89,7 +89,7 @@ CREATE TABLE public.notifications (
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'friend_request')),
   from_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+  ping_id UUID REFERENCES public.pings(id) ON DELETE CASCADE,
   friend_request_id UUID REFERENCES public.friend_requests(id) ON DELETE CASCADE,
   is_read BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
@@ -97,7 +97,7 @@ CREATE TABLE public.notifications (
 
 -- Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
@@ -112,16 +112,16 @@ CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT 
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
--- RLS Policies for posts
-CREATE POLICY "Posts are viewable by everyone" ON public.posts FOR SELECT USING (true);
-CREATE POLICY "Users can create their own posts" ON public.posts FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own posts" ON public.posts FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own posts" ON public.posts FOR DELETE USING (auth.uid() = user_id);
+-- RLS Policies for pings
+CREATE POLICY "Pings are viewable by everyone" ON public.pings FOR SELECT USING (true);
+CREATE POLICY "Users can create their own pings" ON public.pings FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own pings" ON public.pings FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own pings" ON public.pings FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for likes
 CREATE POLICY "Likes are viewable by everyone" ON public.likes FOR SELECT USING (true);
-CREATE POLICY "Users can like posts" ON public.likes FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can unlike posts" ON public.likes FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can like pings" ON public.likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unlike pings" ON public.likes FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for comments
 CREATE POLICY "Comments are viewable by everyone" ON public.comments FOR SELECT USING (true);

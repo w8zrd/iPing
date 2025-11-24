@@ -14,7 +14,7 @@ import AuthModal from '@/components/AuthModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Supabase Data Types
-type SupabasePost = {
+type SupabasePing = {
   id: string;
   content: string;
   created_at: string;
@@ -31,7 +31,7 @@ interface ProfileData {
 }
 
 interface UserProfile extends ProfileData {
-  posts: SupabasePost[];
+  pings: SupabasePing[];
 }
 
 // Define a default profile for loading states or errors
@@ -43,7 +43,7 @@ const DEFAULT_PROFILE: UserProfile = {
   verified: false,
   location: null,
   created_at: new Date().toISOString(),
-  posts: [],
+  pings: [],
 };
 
 const Profile = () => {
@@ -94,18 +94,18 @@ const Profile = () => {
      }
      console.log('Profile.tsx: Successfully fetched profileData:', profileData);
      
-     // 2. Fetch User Posts
-     const { data: postsData, error: postsError } = await supabase
-       .from('posts')
+     // 2. Fetch User Pings
+     const { data: pingsData, error: pingsError } = await supabase
+       .from('pings')
        .select(`id, content, created_at`)
        .eq('user_id', profileData.id)
        .order('created_at', { ascending: false });
 
-     if (postsError) {
-        console.error('Profile.tsx: Error fetching posts:', postsError);
-        // Continue with profile data but empty posts
+     if (pingsError) {
+        console.error('Profile.tsx: Error fetching pings:', pingsError);
+        // Continue with profile data but empty pings
      }
-     console.log('Profile.tsx: Posts fetched:', postsData);
+     console.log('Profile.tsx: Pings fetched:', pingsData);
 
      // 3. Check for existing friend request from authUser to this profile
      if (authUser && authUser.id !== profileData.id) {
@@ -127,7 +127,7 @@ const Profile = () => {
 
      setUserProfile({
        ...profileData,
-       posts: postsData || [],
+       pings: pingsData || [],
      } as UserProfile);
      setLoading(false);
      console.log('Profile.tsx: setUserProfile completed.');
@@ -301,7 +301,7 @@ const Profile = () => {
 
           <div className="flex gap-6 text-sm">
             <div>
-              <span className="font-bold text-foreground">{profile.posts.length}</span>
+              <span className="font-bold text-foreground">{profile.pings.length}</span>
               <span className="text-muted-foreground ml-1">Pings</span>
             </div>
             <div>
@@ -318,17 +318,17 @@ const Profile = () => {
         <div className="mb-4">
           <h3 className="text-xl font-semibold mb-4">{isOwnProfile ? 'Your Pings' : `${profile.display_name}'s Pings`}</h3>
           <div className="space-y-4">
-            {profile.posts.map((post, index) => (
+            {profile.pings.map((ping, index) => (
               <div
-                key={post.id}
+                key={ping.id}
                 className="glass rounded-3xl p-6 shadow-md animate-fade-in"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <p className="text-foreground/90 mb-2">
-                  <ParsedText text={post.content} />
+                  <ParsedText text={ping.content} />
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(post.created_at).toLocaleString()}
+                  {new Date(ping.created_at).toLocaleString()}
                 </p>
               </div>
             ))}

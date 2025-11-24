@@ -2,32 +2,32 @@ import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
-const CreatePost: React.FC = () => {
+const CreatePing: React.FC = () => {
   const { user } = useAuth();
   const [content, setContent] = useState('');
-  const [isPosting, setIsPosting] = useState(false);
+  const [isPinging, setIsPinging] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || !user || isPosting) return;
+    if (!content.trim() || !user || isPinging) return;
 
-    setIsPosting(true);
+    setIsPinging(true);
     
     const { error } = await supabase
-      .from('posts')
+      .from('pings')
       .insert([
         { user_id: user.id, content: content.trim() }
       ]);
       
-    setIsPosting(false);
+    setIsPinging(false);
 
     if (error) {
-      console.error('Error creating post:', error);
+      console.error('Error creating ping:', error);
       // We need a better error handling mechanism, but for debug now:
-      alert(`Post creation failed: ${error.message}`);
+      alert(`Ping creation failed: ${error.message}`);
     } else {
       setContent('');
-      console.log('Post created successfully!');
+      console.log('Ping created successfully!');
       // Assuming a mechanism exists to refresh the feed
     }
   };
@@ -43,18 +43,18 @@ const CreatePost: React.FC = () => {
         />
         <button
           type="submit"
-          disabled={isPosting || !content.trim() || !user}
+          disabled={isPinging || !content.trim() || !user}
           className={`px-4 py-2 rounded-lg mt-2 transition-colors ${
-            isPosting || !content.trim() || !user
+            isPinging || !content.trim() || !user
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-blue-500 text-white hover:bg-blue-600'
           }`}
         >
-          {isPosting ? 'Posting...' : 'Post'}
+          {isPinging ? 'Pinging...' : 'Ping'}
         </button>
       </form>
     </div>
   );
 };
 
-export default CreatePost;
+export default CreatePing;

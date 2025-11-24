@@ -19,7 +19,7 @@ interface Notification {
   text: string;
   timestamp: Date;
   read: boolean;
-  postId?: string;
+  pingId?: string;
   commentId?: string;
 }
 
@@ -31,7 +31,7 @@ const mockNotifications: Notification[] = [
     text: 'liked your ping',
     timestamp: new Date(Date.now() - 1000 * 60 * 5),
     read: false,
-    postId: 'post-1',
+    pingId: 'ping-1',
   },
   {
     id: '2',
@@ -48,7 +48,7 @@ const mockNotifications: Notification[] = [
     text: 'commented on your ping',
     timestamp: new Date(Date.now() - 1000 * 60 * 60),
     read: true,
-    postId: 'post-2',
+    pingId: 'ping-2',
     commentId: 'comment-1',
   },
 ];
@@ -84,10 +84,10 @@ const Notifications = () => {
   const handleNotificationClick = (notification: Notification) => {
     markNotificationAsRead(notification.id);
     
-    if (notification.type === 'like' && notification.postId) {
-      navigate(`/?post=${notification.postId}`);
-    } else if (notification.type === 'comment' && notification.postId) {
-      navigate(`/?post=${notification.postId}&openComments=true`);
+    if (notification.type === 'like' && notification.pingId) {
+      navigate(`/?ping=${notification.pingId}`);
+    } else if (notification.type === 'comment' && notification.pingId) {
+      navigate(`/?ping=${notification.pingId}&openComments=true`);
     } else if (notification.type === 'friend_request' || notification.type === 'follow') {
       navigate(`/profile/${notification.user.username}`);
     }

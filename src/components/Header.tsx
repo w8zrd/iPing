@@ -57,7 +57,7 @@ const Header = () => {
                       handleSearch();
                     }
                   }}
-                  placeholder="Search posts, people..."
+                  placeholder="Search pings, people..."
                   className="h-10 rounded-2xl glass border-border/50 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple"
                   autoFocus
                 />

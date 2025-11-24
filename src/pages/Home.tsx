@@ -29,7 +29,7 @@ interface Comment {
   profiles?: Profile;
 }
 
-interface Post {
+interface Ping {
   id: string;
   user_id: string;
   content: string;
@@ -45,17 +45,17 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const postRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const [highlightedPost, setHighlightedPost] = useState<string | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const pingRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [highlightedPing, setHighlightedPing] = useState<string | null>(null);
+  const [pings, setPings] = useState<Ping[]>([]);
   const [friendRequests, setFriendRequests] = useState<string[]>([]);
-  const [newPost, setNewPost] = useState('');
+  const [newPing, setNewPing] = useState('');
   const [loading, setLoading] = useState(false);
-  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [expandedPing, setExpandedPing] = useState<string | null>(null);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
-  const [focusedCommentPost, setFocusedCommentPost] = useState<string | null>(null);
-  const [postInputFocused, setPostInputFocused] = useState(false);
-  const [postImage, setPostImage] = useState<string | null>(null);
+  const [focusedCommentPing, setFocusedCommentPing] = useState<string | null>(null);
+  const [pingInputFocused, setPingInputFocused] = useState(false);
+  const [pingImage, setPingImage] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -63,38 +63,38 @@ const Home = () => {
   const openAuthModal = () => setIsAuthModalOpen(true);
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
-  const handleDeletePost = async (postId: string) => {
+  const handleDeletePing = async (pingId: string) => {
     if (!user) return;
 
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    const { error } = await supabase.from('pings').delete().eq('id', pingId);
 
     if (error) {
       toast({
         title: 'Error',
-        description: 'Failed to delete post. Please try again.',
+        description: 'Failed to delete ping. Please try again.',
         variant: 'destructive',
       });
     } else {
-      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
+      setPings((prevPings) => prevPings.filter((ping) => ping.id !== pingId));
       toast({
-        title: 'Post deleted!',
+        title: 'Ping deleted!',
         description: 'Your ping has been removed.',
       });
     }
   };
 
 
-  // Fetch posts
+  // Fetch pings
   useEffect(() => {
-    fetchPosts();
+    fetchPings();
   }, []);
 
-  const fetchPosts = async () => {
+  const fetchPings = async () => {
     const { data, error } = await supabase
-      .from('posts')
+      .from('pings')
       .select(`
         *,
-        profiles!posts_user_id_fkey(id, username, display_name, verified),
+        profiles!pings_user_id_fkey(id, username, display_name, verified),
         likes(id, user_id),
         comments(
           id,
@@ -107,31 +107,31 @@ const Home = () => {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setPosts(data as any);
+      setPings(data as any);
     }
   };
 
-  // Realtime subscription for new posts
+  // Realtime subscription for new pings
   useEffect(() => {
     const channel = supabase
-      .channel('posts-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
-        setPosts((prevPosts) => [payload.new as Post, ...prevPosts]);
+      .channel('pings-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pings' }, (payload) => {
+        setPings((prevPings) => [payload.new as Ping, ...prevPings]);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pings' }, (payload) => {
         if (payload.new.views !== undefined) {
-          setPosts((prevPosts) =>
-            prevPosts.map((post) =>
-              post.id === payload.new.id ? { ...post, views: payload.new.views } : post
+          setPings((prevPings) =>
+            prevPings.map((ping) =>
+              ping.id === payload.new.id ? { ...ping, views: payload.new.views } : ping
             )
           );
         } else {
-          // For other updates, refetch the posts to ensure consistency
-          fetchPosts();
+          // For other updates, refetch the pings to ensure consistency
+          fetchPings();
         }
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, (payload) => {
-        setPosts((prevPosts) => prevPosts.filter((post) => post.id !== payload.old.id));
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pings' }, (payload) => {
+        setPings((prevPings) => prevPings.filter((ping) => ping.id !== payload.old.id));
       })
       .subscribe();
 
@@ -142,19 +142,19 @@ const Home = () => {
 
   // Handle navigation from notifications and shared links
   useEffect(() => {
-    const postId = searchParams.get('post');
+    const pingId = searchParams.get('ping');
     const shouldOpenComments = searchParams.get('openComments') === 'true';
     
-    if (postId) {
-      setHighlightedPost(postId);
+    if (pingId) {
+      setHighlightedPing(pingId);
       
       setTimeout(() => {
-        const element = postRefs.current[postId];
+        const element = pingRefs.current[pingId];
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
           
           if (shouldOpenComments) {
-            setExpandedPost(postId);
+            setExpandedPing(pingId);
           }
         }
       }, 100);
@@ -164,91 +164,91 @@ const Home = () => {
   // Clear highlight on scroll
   useEffect(() => {
     const handleScroll = () => {
-      if (highlightedPost) {
-        setHighlightedPost(null);
+      if (highlightedPing) {
+        setHighlightedPing(null);
         setSearchParams({}, { replace: true });
       }
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [highlightedPost, setSearchParams]);
+  }, [highlightedPing, setSearchParams]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPostImage(reader.result as string);
+        setPingImage(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handlePost = async () => {
+  const handlePing = async () => {
     if (!user) {
       openAuthModal();
       return;
     }
-    if (!newPost.trim() && !postImage) return;
+    if (!newPing.trim() && !pingImage) return;
     
     setLoading(true);
 
-    const { error } = await supabase.from('posts').insert({
+    const { error } = await supabase.from('pings').insert({
       user_id: user.id,
-      content: newPost,
-      image_url: postImage || undefined,
+      content: newPing,
+      image_url: pingImage || undefined,
     });
 
     if (error) {
       toast({
         title: 'Error',
-        description: 'Failed to post. Please try again.',
+        description: 'Failed to ping. Please try again.',
         variant: 'destructive',
       });
     } else {
-      setNewPost('');
-      setPostImage(null);
+      setNewPing('');
+      setPingImage(null);
       toast({
-        title: 'Posted!',
+        title: 'Pinged!',
         description: 'Your ping is now live',
       });
-      fetchPosts();
+      fetchPings();
     }
     
     setLoading(false);
   };
 
-  const handleLike = async (postId: string) => {
+  const handleLike = async (pingId: string) => {
     if (!user) {
       openAuthModal();
       return;
     }
     
-    const post = posts.find(p => p.id === postId);
-    const alreadyLiked = post?.likes?.some(like => like.user_id === user.id);
+    const ping = pings.find(p => p.id === pingId);
+    const alreadyLiked = ping?.likes?.some(like => like.user_id === user.id);
 
     if (alreadyLiked) {
-      const likeId = post?.likes?.find(like => like.user_id === user.id)?.id;
+      const likeId = ping?.likes?.find(like => like.user_id === user.id)?.id;
       await supabase.from('likes').delete().eq('id', likeId);
     } else {
-      await supabase.from('likes').insert({ user_id: user.id, post_id: postId });
+      await supabase.from('likes').insert({ user_id: user.id, ping_id: pingId });
     }
     
-    fetchPosts();
+    fetchPings();
   };
 
-  const handleComment = async (postId: string) => {
+  const handleComment = async (pingId: string) => {
     if (!user) {
       openAuthModal();
       return;
     }
-    const text = commentText[postId]?.trim();
+    const text = commentText[pingId]?.trim();
     if (!text) return;
 
     const { error } = await supabase.from('comments').insert({
       user_id: user.id,
-      post_id: postId,
+      ping_id: pingId,
       content: text,
     });
 
@@ -259,12 +259,12 @@ const Home = () => {
         variant: 'destructive',
       });
     } else {
-      setCommentText({ ...commentText, [postId]: '' });
+      setCommentText({ ...commentText, [pingId]: '' });
       toast({
         title: 'Comment added!',
         description: 'Your comment is now visible',
       });
-      fetchPosts();
+      fetchPings();
     }
   };
 
@@ -289,18 +289,18 @@ const Home = () => {
     }
   };
 
-  const toggleComments = (postId: string) => {
-    setExpandedPost(expandedPost === postId ? null : postId);
+  const toggleComments = (pingId: string) => {
+    setExpandedPing(expandedPing === pingId ? null : pingId);
   };
 
-  const handleShare = async (post: Post) => {
-    const shareUrl = `${window.location.origin}/?post=${post.id}`;
-    const shareText = `Check out this ping from ${post.profiles?.display_name} on iPing!`;
+  const handleShare = async (ping: Ping) => {
+    const shareUrl = `${window.location.origin}/?ping=${ping.id}`;
+    const shareText = `Check out this ping from ${ping.profiles?.display_name} on iPing!`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'iPing Post',
+          title: 'iPing Ping',
           text: shareText,
           url: shareUrl,
         });
@@ -310,7 +310,7 @@ const Home = () => {
           navigator.clipboard.writeText(shareUrl);
           toast({
             title: 'Link copied!',
-            description: 'Post link copied to clipboard',
+            description: 'Ping link copied to clipboard',
           });
         }
       }
@@ -319,35 +319,35 @@ const Home = () => {
       navigator.clipboard.writeText(shareUrl);
       toast({
         title: 'Link copied!',
-        description: 'Post link copied to clipboard',
+        description: 'Ping link copied to clipboard',
       });
     }
   };
 
   return (
     <div className="min-h-screen pb-32">
-      <div className={focusedCommentPost || postInputFocused ? 'blur-sm pointer-events-none' : ''}>
+      <div className={focusedCommentPing || pingInputFocused ? 'blur-sm pointer-events-none' : ''}>
         <Header />
       </div>
       <div className="max-w-2xl mx-auto p-4">
-        <div className={`mb-8 pt-24 animate-fade-in ${postInputFocused ? 'blur-sm pointer-events-none' : ''}`}>
+        <div className={`mb-8 pt-24 animate-fade-in ${pingInputFocused ? 'blur-sm pointer-events-none' : ''}`}>
           <p className="text-muted-foreground">Connect with friends</p>
         </div>
 
         <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
           <Textarea
             placeholder="What's on your mind?"
-            value={newPost}
-            onChange={(e) => setNewPost(e.target.value)}
-            onFocus={() => setPostInputFocused(true)}
-            onBlur={() => setPostInputFocused(false)}
+            value={newPing}
+            onChange={(e) => setNewPing(e.target.value)}
+            onFocus={() => setPingInputFocused(true)}
+            onBlur={() => setPingInputFocused(false)}
             className="min-h-[100px] rounded-2xl border-border/50 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple mb-4"
           />
-          {postImage && (
+          {pingImage && (
             <div className="relative mb-4">
-              <img src={postImage} alt="Upload preview" className="rounded-2xl max-h-64 w-full object-cover" />
+              <img src={pingImage} alt="Upload preview" className="rounded-2xl max-h-64 w-full object-cover" />
               <button
-                onClick={() => setPostImage(null)}
+                onClick={() => setPingImage(null)}
                 className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full p-1.5 hover:bg-background transition-apple"
               >
                 <X className="h-4 w-4" />
@@ -376,62 +376,62 @@ const Home = () => {
               </Button>
             </label>
             <Button
-              onClick={handlePost}
-              disabled={loading || (!newPost.trim() && !postImage)}
+              onClick={handlePing}
+              disabled={loading || (!newPing.trim() && !pingImage)}
               className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple"
             >
-              {loading ? 'Posting...' : 'Ping'}
+              {loading ? 'Pinging...' : 'Ping'}
             </Button>
           </div>
         </div>
 
         <div className="space-y-4">
-          {posts.map((post, index) => (
+          {pings.map((ping, index) => (
             <div
-              key={post.id}
-              ref={(el) => (postRefs.current[post.id] = el)}
+              key={ping.id}
+              ref={(el) => (pingRefs.current[ping.id] = el)}
               className={`glass rounded-3xl p-6 shadow-md hover-lift animate-fade-in transition-all ${
-                (focusedCommentPost && focusedCommentPost !== post.id) || postInputFocused ? 'blur-sm pointer-events-none' : ''
+                (focusedCommentPing && focusedCommentPing !== ping.id) || pingInputFocused ? 'blur-sm pointer-events-none' : ''
               } ${
-                highlightedPost === post.id ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''
+                highlightedPing === ping.id ? 'ring-4 ring-primary ring-offset-2 ring-offset-background' : ''
               }`}
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div className="flex items-start gap-3 mb-3">
                 <button
-                  onClick={() => navigate(`/profile/${post.profiles?.username}`)}
+                  onClick={() => navigate(`/profile/${ping.profiles?.username}`)}
                   className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold text-sm hover:scale-105 transition-apple"
                 >
-                  {post.profiles?.display_name?.charAt(0).toUpperCase() || 'U'}
+                  {ping.profiles?.display_name?.charAt(0).toUpperCase() || 'U'}
                 </button>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => navigate(`/profile/${post.profiles?.username}`)}
+                        onClick={() => navigate(`/profile/${ping.profiles?.username}`)}
                         className="font-semibold hover:text-primary transition-apple"
                       >
-                        {post.profiles?.display_name}
+                        {ping.profiles?.display_name}
                       </button>
-                      {post.profiles?.verified && (
+                      {ping.profiles?.verified && (
                         <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
                           <Check className="h-3 w-3 text-white stroke-2" />
                         </div>
                       )}
                     </div>
-                    {user && post.user_id !== user.id && (
+                    {user && ping.user_id !== user.id && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleFriendRequest(post.user_id, post.profiles?.display_name || '')}
-                        disabled={friendRequests.includes(post.user_id)}
+                        onClick={() => handleFriendRequest(ping.user_id, ping.profiles?.display_name || '')}
+                        disabled={friendRequests.includes(ping.user_id)}
                         className="h-6 text-xs ml-auto rounded-full"
                       >
                         <UserPlus className="h-3 w-3 mr-1" />
-                        {friendRequests.includes(post.user_id) ? 'Requested' : 'Add'}
+                        {friendRequests.includes(ping.user_id) ? 'Requested' : 'Add'}
                       </Button>
                     )}
-                    {post.user_id === user?.id && (
+                    {ping.user_id === user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full ml-auto">
@@ -439,54 +439,54 @@ const Home = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleDeletePost(post.id)}>
-                            Delete Post
+                          <DropdownMenuItem onClick={() => handleDeletePing(ping.id)}>
+                            Delete Ping
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    @{post.profiles?.username} · {new Date(post.created_at).toLocaleString()}
+                    @{ping.profiles?.username} · {new Date(ping.created_at).toLocaleString()}
                   </p>
                 </div>
               </div>
               
               <p className="mb-4 text-foreground/90 break-words">
-                <ParsedText text={post.content} />
+                <ParsedText text={ping.content} />
               </p>
               
-              {post.image_url && (
+              {ping.image_url && (
                 <img
-                  src={post.image_url}
-                  alt="Post image"
+                  src={ping.image_url}
+                  alt="Ping image"
                   className="rounded-2xl w-full mb-4 max-h-96 object-cover"
                 />
               )}
               
               <div className="flex items-center gap-6 mb-4">
                 <button
-                  onClick={() => handleLike(post.id)}
+                  onClick={() => handleLike(ping.id)}
                   className={`flex items-center gap-2 transition-apple group ${
-                    post.likes?.some(like => like.user_id === user?.id)
+                    ping.likes?.some(like => like.user_id === user?.id)
                       ? 'text-destructive'
                       : 'text-muted-foreground hover:text-destructive'
                   }`}
                 >
                   <Heart className={`h-5 w-5 group-hover:animate-bounce-subtle ${
-                    post.likes?.some(like => like.user_id === user?.id) ? 'fill-destructive' : ''
+                    ping.likes?.some(like => like.user_id === user?.id) ? 'fill-destructive' : ''
                   }`} />
-                  <span className="text-sm font-medium">{post.likes?.length || 0}</span>
+                  <span className="text-sm font-medium">{ping.likes?.length || 0}</span>
                 </button>
                 <button
                   onClick={() => {
-                    const isExpanding = expandedPost !== post.id;
-                    toggleComments(post.id);
+                    const isExpanding = expandedPing !== ping.id;
+                    toggleComments(ping.id);
                     if (isExpanding) {
-                      supabase.rpc('increment_post_views', { _post_id: post.id });
-                      setPosts((prevPosts) =>
-                        prevPosts.map((p) =>
-                          p.id === post.id ? { ...p, views: p.views + 1 } : p
+                      supabase.rpc('increment_ping_views', { _ping_id: ping.id });
+                      setPings((prevPings) =>
+                        prevPings.map((p) =>
+                          p.id === ping.id ? { ...p, views: p.views + 1 } : p
                         )
                       );
                     }
@@ -494,23 +494,23 @@ const Home = () => {
                   className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
                 >
                   <MessageCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">{post.comments?.length || 0}</span>
+                  <span className="text-sm font-medium">{ping.comments?.length || 0}</span>
                 </button>
                 <button
-                  onClick={() => handleShare(post)}
+                  onClick={() => handleShare(ping)}
                   className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
                 >
                   <Share2 className="h-5 w-5" />
                 </button>
                 <div className="flex items-center gap-2 text-muted-foreground ml-auto">
                   <Eye className="h-5 w-5" />
-                  <span className="text-sm font-medium">{post.views.toLocaleString()}</span>
+                  <span className="text-sm font-medium">{ping.views.toLocaleString()}</span>
                 </div>
               </div>
 
-              {expandedPost === post.id && (
+              {expandedPing === ping.id && (
                 <div className="mt-4 pt-4 border-t border-border/50 animate-fade-in space-y-4">
-                  {(post.comments || []).map((comment) => (
+                  {(ping.comments || []).map((comment) => (
                     <div key={comment.id} className="flex gap-3">
                       <button
                         onClick={() => navigate(`/profile/${comment.profiles?.username}`)}
@@ -547,24 +547,24 @@ const Home = () => {
                   <div className="relative mt-4">
                     <Input
                       placeholder="Add a comment..."
-                      value={commentText[post.id] || ''}
-                      onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })}
-                      onFocus={() => setFocusedCommentPost(post.id)}
-                      onBlur={() => setFocusedCommentPost(null)}
+                      value={commentText[ping.id] || ''}
+                      onChange={(e) => setCommentText({ ...commentText, [ping.id]: e.target.value })}
+                      onFocus={() => setFocusedCommentPing(ping.id)}
+                      onBlur={() => setFocusedCommentPing(null)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
-                          handleComment(post.id);
+                          handleComment(ping.id);
                         }
                       }}
                       className="h-12 pr-12 rounded-3xl glass-strong border-border/50 transition-apple px-4"
                     />
                     <button
-                      onClick={() => handleComment(post.id)}
-                      disabled={!commentText[post.id]?.trim()}
+                      onClick={() => handleComment(ping.id)}
+                      disabled={!commentText[ping.id]?.trim()}
                       className={`absolute right-4 top-1/2 -translate-y-1/2 transition-apple ${
-                        commentText[post.id]?.trim() 
-                          ? 'text-primary hover:scale-110' 
+                        commentText[ping.id]?.trim()
+                          ? 'text-primary hover:scale-110'
                           : 'text-muted-foreground opacity-50 cursor-not-allowed'
                       }`}
                     >
@@ -578,7 +578,7 @@ const Home = () => {
         </div>
       </div>
  
-       <div className={focusedCommentPost ? 'blur-sm pointer-events-none' : ''}>
+       <div className={focusedCommentPing ? 'blur-sm pointer-events-none' : ''}>
          <Navigation />
        </div>
        <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />

@@ -14,7 +14,7 @@ interface User {
   verified: boolean;
 }
 
-interface Post {
+interface Ping {
   id: string;
   username: string;
   displayName: string;
@@ -30,7 +30,7 @@ const mockUsers: User[] = [
   { username: 'you', displayName: 'You', bio: 'Living my best life on iPing ✨', verified: false },
 ];
 
-const mockPosts: Post[] = [
+const mockPings: Ping[] = [
   {
     id: '1',
     username: 'alex',
@@ -62,7 +62,7 @@ const SearchResults = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const [filteredPings, setFilteredPings] = useState<Ping[]>([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -87,18 +87,18 @@ const SearchResults = () => {
       );
       setFilteredUsers(users);
 
-      // Filter posts by text content, hashtags, or author
-      const posts = mockPosts.filter(
-        (post) =>
-          post.text.toLowerCase().includes(lowerQuery) ||
-          post.text.toLowerCase().includes(`#${lowerQuery}`) ||
-          post.username.toLowerCase().includes(lowerQuery) ||
-          post.displayName.toLowerCase().includes(lowerQuery)
+      // Filter pings by text content, hashtags, or author
+      const pings = mockPings.filter(
+        (ping) =>
+          ping.text.toLowerCase().includes(lowerQuery) ||
+          ping.text.toLowerCase().includes(`#${lowerQuery}`) ||
+          ping.username.toLowerCase().includes(lowerQuery) ||
+          ping.displayName.toLowerCase().includes(lowerQuery)
       );
-      setFilteredPosts(posts);
+      setFilteredPings(pings);
     } else {
       setFilteredUsers([]);
-      setFilteredPosts([]);
+      setFilteredPings([]);
     }
   }, [query]);
 
@@ -201,7 +201,7 @@ const SearchResults = () => {
           </div>
         )}
 
-        {filteredUsers.length === 0 && filteredPosts.length === 0 && query && (
+        {filteredUsers.length === 0 && filteredPings.length === 0 && query && (
           <div className="glass rounded-3xl p-8 text-center animate-scale-in">
             <p className="text-muted-foreground">
               No results found for "{query}"
