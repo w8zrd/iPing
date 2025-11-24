@@ -5,7 +5,8 @@ import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye } from 'lucide-react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
@@ -56,6 +57,27 @@ const Home = () => {
   const [postImage, setPostImage] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  const handleDeletePost = async (postId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase.from('posts').delete().eq('id', postId);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete post. Please try again.',
+        variant: 'destructive',
+      });
+    } else {
+      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
+      toast({
+        title: 'Post deleted!',
+        description: 'Your ping has been removed.',
+      });
+    }
+  };
+
 
   // Fetch posts
   useEffect(() => {
@@ -363,38 +385,52 @@ const Home = () => {
                 >
                   {post.profiles?.display_name?.charAt(0).toUpperCase() || 'U'}
                 </button>
-                 <div className="flex-1">
-                   <div className="flex items-center gap-2 flex-wrap">
-                     <div className="flex items-center gap-1.5">
-                       <button
-                         onClick={() => navigate(`/profile/${post.profiles?.username}`)}
-                         className="font-semibold hover:text-primary transition-apple"
-                       >
-                         {post.profiles?.display_name}
-                       </button>
-                        {post.profiles?.verified && (
-                          <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
-                            <Check className="h-3 w-3 text-white stroke-2" />
-                          </div>
-                        )}
-                     </div>
-                     {user && post.user_id !== user.id && (
-                       <Button
-                         size="sm"
-                         variant="outline"
-                         onClick={() => handleFriendRequest(post.user_id, post.profiles?.display_name || '')}
-                         disabled={friendRequests.includes(post.user_id)}
-                         className="h-6 text-xs ml-auto rounded-full"
-                       >
-                         <UserPlus className="h-3 w-3 mr-1" />
-                         {friendRequests.includes(post.user_id) ? 'Requested' : 'Add'}
-                       </Button>
-                     )}
-                   </div>
-                   <p className="text-xs text-muted-foreground">
-                     @{post.profiles?.username} · {new Date(post.created_at).toLocaleString()}
-                   </p>
-                 </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => navigate(`/profile/${post.profiles?.username}`)}
+                        className="font-semibold hover:text-primary transition-apple"
+                      >
+                        {post.profiles?.display_name}
+                      </button>
+                      {post.profiles?.verified && (
+                        <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
+                          <Check className="h-3 w-3 text-white stroke-2" />
+                        </div>
+                      )}
+                    </div>
+                    {user && post.user_id !== user.id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFriendRequest(post.user_id, post.profiles?.display_name || '')}
+                        disabled={friendRequests.includes(post.user_id)}
+                        className="h-6 text-xs ml-auto rounded-full"
+                      >
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        {friendRequests.includes(post.user_id) ? 'Requested' : 'Add'}
+                      </Button>
+                    )}
+                    {post.user_id === user?.id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full ml-auto">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => handleDeletePost(post.id)}>
+                            Delete Post
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    @{post.profiles?.username} · {new Date(post.created_at).toLocaleString()}
+                  </p>
+                </div>
               </div>
               
               <p className="mb-4 text-foreground/90 break-words">
@@ -402,9 +438,9 @@ const Home = () => {
               </p>
               
               {post.image_url && (
-                <img 
-                  src={post.image_url} 
-                  alt="Post image" 
+                <img
+                  src={post.image_url}
+                  alt="Post image"
                   className="rounded-2xl w-full mb-4 max-h-96 object-cover"
                 />
               )}
