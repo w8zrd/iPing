@@ -88,14 +88,23 @@ const Home = () => {
   useEffect(() => {
     const channel = supabase
       .channel('posts-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
-        fetchPosts();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+        setPosts((prevPosts) => [payload.new as Post, ...prevPosts]);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, () => {
-        fetchPosts();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, (payload) => {
+        if (payload.new.views !== undefined) {
+          setPosts((prevPosts) =>
+            prevPosts.map((post) =>
+              post.id === payload.new.id ? { ...post, views: payload.new.views } : post
+            )
+          );
+        } else {
+          // For other updates, refetch the posts to ensure consistency
+          fetchPosts();
+        }
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, () => {
-        fetchPosts();
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, (payload) => {
+        setPosts((prevPosts) => prevPosts.filter((post) => post.id !== payload.old.id));
       })
       .subscribe();
 
