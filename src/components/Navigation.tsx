@@ -2,25 +2,27 @@ import { Home, Bell, MessageCircle, User } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useNotificationContext } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const Navigation = () => {
   const location = useLocation();
   const { readChats } = useChatContext();
   const { unreadCount } = useNotificationContext();
+  const { user } = useAuth(); // Get user from AuthContext
   
-  // Mock data - count unread chats
+  // Mock data - count unread chats (if user is logged in)
   const mockChats = [
     { id: '1', unread: true },
     { id: '2', unread: false },
     { id: '3', unread: false },
   ];
-  const unreadChatsCount = mockChats.filter(chat => chat.unread && !readChats.has(chat.id)).length;
+  const unreadChatsCount = user ? mockChats.filter(chat => chat.unread && !readChats.has(chat.id)).length : 0;
   
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
-    { icon: Bell, label: 'Notifications', path: '/notifications' },
-    { icon: MessageCircle, label: 'Chats', path: '/chats' },
-    { icon: User, label: 'Profile', path: '/profile' },
+    { icon: Bell, label: 'Notifications', path: '/notifications', requiresAuth: true },
+    { icon: MessageCircle, label: 'Chats', path: '/chats', requiresAuth: true },
+    { icon: User, label: 'Profile', path: '/profile', requiresAuth: true },
   ];
 
   const handleNavClick = (e: React.MouseEvent, path: string) => {
@@ -44,8 +46,10 @@ const Navigation = () => {
                   isActive
                     ? 'text-primary scale-110'
                     : 'text-muted-foreground hover:text-foreground'
-                }`
+                } ${item.requiresAuth && !user ? 'opacity-50 cursor-not-allowed' : ''}`
               }
+              tabIndex={item.requiresAuth && !user ? -1 : 0}
+              aria-disabled={item.requiresAuth && !user}
             >
               <div className="relative">
                 <item.icon className="h-6 w-6" />

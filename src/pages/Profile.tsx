@@ -51,6 +51,10 @@ const Profile = () => {
   const navigate = useNavigate();
   const { user: authUser, loading: authLoading } = useAuth();
 
+  console.log('Profile component mounted, urlUsername:', urlUsername);
+
+  console.log('Profile component mounted, urlUsername:', urlUsername);
+
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [friendRequested, setFriendRequested] = useState(false); // Indicates if a request was just sent by the current user
@@ -64,12 +68,15 @@ const Profile = () => {
  const isOwnProfile = authUser?.user_metadata.username === urlUsername;
 
  useEffect(() => {
+   console.log('Profile useEffect triggered.');
    if (authLoading) return;
    
    const targetUsername = urlUsername || authUser?.user_metadata.username as string;
+   console.log('Profile.tsx: targetUsername derived:', targetUsername);
 
    const fetchProfile = async (targetUser: string) => {
      setLoading(true);
+     console.log('Profile.tsx: Attempting to fetch profile for:', targetUser);
      
      // 1. Fetch Profile Data
      const { data: profileData, error: profileError } = await supabase
@@ -79,11 +86,13 @@ const Profile = () => {
        .single();
        
      if (profileError || !profileData) {
-       console.error('Error fetching profile or profile not found:', profileError);
+       console.error('Profile.tsx: Error fetching profile or profile not found:', profileError);
+       console.log('Profile.tsx: profileData:', profileData);
        setUserProfile(null);
        setLoading(false);
        return;
      }
+     console.log('Profile.tsx: Successfully fetched profileData:', profileData);
      
      // 2. Fetch User Posts
      const { data: postsData, error: postsError } = await supabase
@@ -93,9 +102,10 @@ const Profile = () => {
        .order('created_at', { ascending: false });
 
      if (postsError) {
-        console.error('Error fetching posts:', postsError);
+        console.error('Profile.tsx: Error fetching posts:', postsError);
         // Continue with profile data but empty posts
      }
+     console.log('Profile.tsx: Posts fetched:', postsData);
 
      // 3. Check for existing friend request from authUser to this profile
      if (authUser && authUser.id !== profileData.id) {
@@ -107,9 +117,9 @@ const Profile = () => {
          .single();
 
        if (friendRequestError && friendRequestError.code !== 'PGRST116') { // PGRST116 means no rows found
-         console.error('Error checking existing friend request:', friendRequestError);
+         console.error('Profile.tsx: Error checking existing friend request:', friendRequestError);
        }
-
+       console.log('Profile.tsx: Friend request data:', friendRequestData);
        setExistingFriendRequest(!!friendRequestData);
      } else {
        setExistingFriendRequest(false);
@@ -120,6 +130,7 @@ const Profile = () => {
        posts: postsData || [],
      } as UserProfile);
      setLoading(false);
+     console.log('Profile.tsx: setUserProfile completed.');
    };
 
    if (targetUsername) {
@@ -129,9 +140,11 @@ const Profile = () => {
        fetchProfile(authUser.user_metadata.username as string);
    } else if (!isOwnProfile && !urlUsername) {
        // Should not happen if protected route works
+       console.log('Profile.tsx: No username in URL and not own profile, setting userProfile to null.');
        setUserProfile(null);
        setLoading(false);
    } else if (isOwnProfile && !authUser) {
+       console.log('Profile.tsx: Own profile, but not authenticated. Redirecting to /auth');
        navigate('/auth'); // Must be logged in to view own profile
    }
 

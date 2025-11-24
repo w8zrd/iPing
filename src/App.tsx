@@ -16,6 +16,8 @@ import ChatConversation from "./pages/ChatConversation";
 import SupabaseAuth from "./pages/SupabaseAuth";
 import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
+import AuthModal from "./components/AuthModal";
+import { useState } from "react";
 
 const queryClient = new QueryClient();
 
@@ -37,32 +39,59 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const AuthRequiredWrapper = ({ children, openAuthModal }: { children: React.ReactNode; openAuthModal: () => void; }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    openAuthModal();
+    return <Navigate to="/auth" replace />; // Redirect to auth page if not logged in
+  }
+  
+  return <>{children}</>;
+};
+
+const App = () => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
+
+  return (
+    <QueryClientProvider client={queryClient}>
       <ChatProvider>
         <NotificationProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <BrowserRouter>
               <Routes>
                 <Route path="/auth" element={<SupabaseAuth />} />
-                <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/:username/post/:postId" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-                <Route path="/search" element={<ProtectedRoute><SearchResults /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/chats" element={<ProtectedRoute><Chats /></ProtectedRoute>} />
-                <Route path="/chats/:chatId" element={<ProtectedRoute><ChatConversation /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
+                <Route path="/:username" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
+                <Route path="/profile" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
+                <Route path="/:username/post/:postId" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
+                <Route path="/search" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><SearchResults /></AuthRequiredWrapper>} />
+                <Route path="/notifications" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Notifications /></AuthRequiredWrapper>} />
+                <Route path="/chats" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Chats /></AuthRequiredWrapper>} />
+                <Route path="/chats/:chatId" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><ChatConversation /></AuthRequiredWrapper>} />
+                <Route path="/settings" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Settings /></AuthRequiredWrapper>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
+            <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
           </TooltipProvider>
         </NotificationProvider>
       </ChatProvider>
     </QueryClientProvider>
-);
+  );
+};
 
 export default App;
