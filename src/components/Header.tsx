@@ -1,4 +1,4 @@
-import { Search, X } from 'lucide-react';
+import { Search, X, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ const Header = () => {
     <>
       {searchOpen && (
         <div 
-          className="fixed inset-0 bg-background/80 backdrop-blur-md z-40 animate-fade-in" 
+          className="fixed inset-0 bg-background/80 backdrop-blur-md z-40 animate-fade-in"
           onClick={() => {
             setSearchOpen(false);
             setSearchQuery('');
@@ -39,6 +39,12 @@ const Header = () => {
                   className="p-2 rounded-full transition-colors text-muted-foreground hover:text-foreground active:text-primary"
                 >
                   <Search className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="p-2 rounded-full transition-colors text-muted-foreground hover:text-foreground active:text-primary"
+                >
+                  <Settings className="h-5 w-5" />
                 </button>
               </>
             ) : (

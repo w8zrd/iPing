@@ -378,7 +378,7 @@ const Home = () => {
                           </div>
                         )}
                      </div>
-                     {post.user_id !== user?.id && (
+                     {user && post.user_id !== user.id && (
                        <Button
                          size="sm"
                          variant="outline"
@@ -397,7 +397,7 @@ const Home = () => {
                  </div>
               </div>
               
-              <p className="mb-4 text-foreground/90">
+              <p className="mb-4 text-foreground/90 break-words">
                 <ParsedText text={post.content} />
               </p>
               
