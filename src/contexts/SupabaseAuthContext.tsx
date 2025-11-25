@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const isMounted = { current: true };
 
-const fetchUserProfile = async (userId: string, isMounted: React.MutableRefObject<boolean>) => {
+const fetchUserProfile = async (userId: string, isMounted: MutableRefObject<boolean>) => {
   const { data, error } = await supabase
     .from('profiles')
     .select('is_admin')
@@ -66,7 +66,6 @@ const fetchUserProfile = async (userId: string, isMounted: React.MutableRefObjec
         setUser(null);
         setSession(null);
         setIsAdmin(false);
-        setLoading(false);
       }
     }).catch((error) => {
       console.error('Error fetching initial session:', error);
@@ -74,6 +73,9 @@ const fetchUserProfile = async (userId: string, isMounted: React.MutableRefObjec
         setUser(null);
         setSession(null);
         setIsAdmin(false);
+      }
+    }).finally(() => {
+      if (isMounted.current) {
         setLoading(false);
       }
     });
