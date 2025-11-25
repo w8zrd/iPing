@@ -1,24 +1,26 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom'; // Import jest-dom matchers
 import { AuthProvider, useAuth } from './SupabaseAuthContext';
 import { supabase } from '@/lib/supabase';
 
 // Mock Supabase
+// Mock Supabase
+const mockSignInWithPassword = vi.fn();
+const mockSignUp = vi.fn();
+const mockSignOut = vi.fn();
+const mockOnAuthStateChange = vi.fn();
+const mockGetSession = vi.fn();
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      signInWithPassword: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn(),
-      onAuthStateChange: vi.fn(() => ({
-        data: {
-          subscription: {
-            unsubscribe: vi.fn(),
-          },
-        },
-      })),
-      getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
+      signInWithPassword: mockSignInWithPassword,
+      signUp: mockSignUp,
+      signOut: mockSignOut,
+      onAuthStateChange: mockOnAuthStateChange,
+      getSession: mockGetSession,
     },
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -56,8 +58,8 @@ describe('AuthProvider', () => {
   });
 
   it('handles successful sign in', async () => {
-    (supabase.auth.signInWithPassword as vi.Mock).mockResolvedValueOnce({ error: null });
-    (supabase.auth.onAuthStateChange as vi.Mock).mockImplementationOnce((callback) => {
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
+    mockOnAuthStateChange.mockImplementationOnce((_event, callback) => {
         callback('SIGNED_IN', { user: { email: 'test@example.com', id: '123' }, access_token: 'abc', token_type: 'Bearer', expires_in: 3600, refresh_token: 'def' });
         return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
@@ -85,20 +87,20 @@ describe('AuthProvider', () => {
   });
 
   it('handles sign out', async () => {
-    (supabase.auth.signOut as vi.Mock).mockResolvedValueOnce({ error: null });
-    (supabase.auth.onAuthStateChange as vi.Mock).mockImplementationOnce((callback) => {
+    mockSignOut.mockResolvedValueOnce({ error: null });
+    mockOnAuthStateChange.mockImplementationOnce((_event, callback) => {
         callback('SIGNED_OUT', null);
         return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
 
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    // Mock initial signed-in state for signOut test BEFORE rendering
+    mockGetSession.mockResolvedValueOnce({ data: { session: { user: { email: 'test@example.com', id: '123' }, access_token: 'abc', token_type: 'Bearer', expires_in: 3600, refresh_token: 'def' } } });
 
-    // Simulate a user already being signed in
-    (supabase.auth.onAuthStateChange as vi.Mock).mock.calls('SIGNED_IN', { user: { email: 'test@example.com', id: '123' }, access_token: 'abc', token_type: 'Bearer', expires_in: 3600, refresh_token: 'def' });
+    render(
+        <AuthProvider>
+            <TestComponent />
+        </AuthProvider>
+    );
 
     await waitFor(() => {
         expect(screen.getByTestId('user')).toHaveTextContent('test@example.com');
@@ -114,8 +116,8 @@ describe('AuthProvider', () => {
   });
 
   it('handles successful sign up', async () => {
-    (supabase.auth.signUp as vi.Mock).mockResolvedValueOnce({ error: null });
-    (supabase.auth.onAuthStateChange as vi.Mock).mockImplementationOnce((callback) => {
+    mockSignUp.mockResolvedValueOnce({ error: null });
+    mockOnAuthStateChange.mockImplementationOnce((_event, callback) => {
         callback('SIGNED_IN', { user: { email: 'test@example.com', id: '123' }, access_token: 'abc', token_type: 'Bearer', expires_in: 3600, refresh_token: 'def' });
         return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
@@ -137,7 +139,7 @@ describe('AuthProvider', () => {
             email: 'test@example.com',
             password: 'password123',
             options: {
-                emailRedirectTo: 'http://localhost:3000/', // Assuming default test environment URL
+                emailRedirectTo: `${window.location.origin}/`,
                 data: {
                     username: 'testuser',
                     display_name: 'testuser',
