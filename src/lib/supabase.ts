@@ -5,7 +5,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase configuration error: Missing environment variables.');
   throw new Error('Supabase URL and anon key are required.');
 }
+console.log('Supabase client initialized.');
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

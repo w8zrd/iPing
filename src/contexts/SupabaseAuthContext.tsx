@@ -22,6 +22,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        console.log('Auth state changed:', _event, session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -30,6 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session);
       if (!session) {
         setLoading(false);
       }
@@ -40,16 +42,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    console.log('Attempting sign in for:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (error) {
+      console.error('Sign in error:', error.message);
+    } else {
+      console.log('User signed in successfully.');
+    }
     return { error };
   };
 
   const signUp = async (email: string, password: string, username: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
+    console.log('Attempting sign up for:', email, 'with username:', username);
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -61,11 +70,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     });
+    if (error) {
+      console.error('Sign up error:', error.message);
+    } else {
+      console.log('User signed up successfully. Check email for verification.');
+    }
     return { error };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    console.log('Attempting sign out.');
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Sign out error:', error.message);
+    } else {
+      console.log('User signed out successfully.');
+    }
   };
 
   return (

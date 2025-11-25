@@ -29,7 +29,7 @@ interface Comment {
   profiles?: Profile;
 }
 
-interface Ping {
+interface Post {
   id: string;
   user_id: string;
   content: string;
@@ -47,7 +47,7 @@ const Home = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const pingRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [highlightedPing, setHighlightedPing] = useState<string | null>(null);
-  const [pings, setPings] = useState<Ping[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [friendRequests, setFriendRequests] = useState<string[]>([]);
   const [newPing, setNewPing] = useState('');
   const [loading, setLoading] = useState(false);
@@ -107,7 +107,10 @@ const Home = () => {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
+      console.log('Home.tsx: Pings fetched successfully:', data);
       setPings(data as any);
+    } else {
+      console.error('Home.tsx: Error fetching pings:', error);
     }
   };
 
@@ -116,22 +119,26 @@ const Home = () => {
     const channel = supabase
       .channel('pings-changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pings' }, (payload) => {
-        setPings((prevPings) => [payload.new as Ping, ...prevPings]);
+        console.log('Home.tsx: Realtime INSERT received:', payload.new);
+        setPosts((prevPosts) => [payload.new as Post, ...prevPosts]);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pings' }, (payload) => {
+        console.log('Home.tsx: Realtime UPDATE received:', payload.new);
         if (payload.new.views !== undefined) {
-          setPings((prevPings) =>
-            prevPings.map((ping) =>
-              ping.id === payload.new.id ? { ...ping, views: payload.new.views } : ping
+          setPosts((prevPosts) =>
+            prevPosts.map((post) =>
+              post.id === payload.new.id ? { ...post, views: payload.new.views } : post
             )
           );
         } else {
           // For other updates, refetch the pings to ensure consistency
+          console.log('Home.tsx: Other ping update, refetching all pings.');
           fetchPings();
         }
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pings' }, (payload) => {
-        setPings((prevPings) => prevPings.filter((ping) => ping.id !== payload.old.id));
+        console.log('Home.tsx: Realtime DELETE received:', payload.old.id);
+        setPosts((prevPosts) => prevPosts.filter((post) => post.id !== payload.old.id));
       })
       .subscribe();
 
@@ -194,11 +201,17 @@ const Home = () => {
     
     setLoading(true);
 
+    console.log('Home.tsx: Attempting to create new ping with content:', newPing, 'and image:', pingImage);
     const { error } = await supabase.from('pings').insert({
       user_id: user.id,
       content: newPing,
       image_url: pingImage || undefined,
     });
+    if (error) {
+      console.error('Home.tsx: Error creating ping:', error);
+    } else {
+      console.log('Home.tsx: Ping created successfully.');
+    }
 
     if (error) {
       toast({
@@ -229,10 +242,14 @@ const Home = () => {
     const alreadyLiked = ping?.likes?.some(like => like.user_id === user.id);
 
     if (alreadyLiked) {
+      console.log('Home.tsx: User unliking ping:', pingId);
       const likeId = ping?.likes?.find(like => like.user_id === user.id)?.id;
-      await supabase.from('likes').delete().eq('id', likeId);
+      const { error } = await supabase.from('likes').delete().eq('id', likeId);
+      if (error) console.error('Home.tsx: Error unliking ping:', error);
     } else {
-      await supabase.from('likes').insert({ user_id: user.id, ping_id: pingId });
+      console.log('Home.tsx: User liking ping:', pingId);
+      const { error } = await supabase.from('likes').insert({ user_id: user.id, post_id: pingId });
+      if (error) console.error('Home.tsx: Error liking ping:', error);
     }
     
     fetchPings();
@@ -246,11 +263,17 @@ const Home = () => {
     const text = commentText[pingId]?.trim();
     if (!text) return;
 
+    console.log('Home.tsx: Attempting to add comment to ping:', pingId, 'with content:', text);
     const { error } = await supabase.from('comments').insert({
       user_id: user.id,
       ping_id: pingId,
       content: text,
     });
+    if (error) {
+      console.error('Home.tsx: Error adding comment:', error);
+    } else {
+      console.log('Home.tsx: Comment added successfully to ping:', pingId);
+    }
 
     if (error) {
       toast({
@@ -274,11 +297,17 @@ const Home = () => {
       return;
     }
     if (friendRequests.includes(targetUserId)) return;
-    
+
+    console.log('Home.tsx: Attempting to send friend request from', user.id, 'to', targetUserId);
     const { error } = await supabase.from('friend_requests').insert({
       from_user_id: user.id,
       to_user_id: targetUserId,
     });
+    if (error) {
+      console.error('Home.tsx: Error sending friend request:', error);
+    } else {
+      console.log('Home.tsx: Friend request sent successfully.');
+    }
 
     if (!error) {
       setFriendRequests([...friendRequests, targetUserId]);
@@ -479,16 +508,22 @@ const Home = () => {
                   <span className="text-sm font-medium">{ping.likes?.length || 0}</span>
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const isExpanding = expandedPing !== ping.id;
                     toggleComments(ping.id);
                     if (isExpanding) {
-                      supabase.rpc('increment_ping_views', { _ping_id: ping.id });
-                      setPings((prevPings) =>
-                        prevPings.map((p) =>
-                          p.id === ping.id ? { ...p, views: p.views + 1 } : p
-                        )
-                      );
+                      console.log('Home.tsx: Incrementing views for ping:', ping.id);
+                      const { error: rpcError } = await supabase.rpc('increment_ping_views', { _ping_id: ping.id });
+                      if (rpcError) {
+                        console.error('Home.tsx: Error incrementing ping views:', rpcError);
+                      } else {
+                        console.log('Home.tsx: Ping views incremented successfully for ping:', ping.id);
+                        setPosts((prevPosts) =>
+                          prevPosts.map((p) =>
+                            p.id === ping.id ? { ...p, views: p.views + 1 } : p
+                          )
+                        );
+                      }
                     }
                   }}
                   className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-apple"
@@ -527,20 +562,20 @@ const Home = () => {
                              >
                                {comment.profiles?.display_name}
                              </button>
-                              {comment.profiles?.verified && (
-                                <div className="flex items-center justify-center w-3.5 h-3.5 bg-primary rounded-full">
-                                  <Check className="h-2.5 w-2.5 text-white stroke-2" />
-                                </div>
-                              )}
-                           </div>
-                           <span className="text-xs text-muted-foreground">
-                             @{comment.profiles?.username} · {new Date(comment.created_at).toLocaleTimeString()}
-                           </span>
-                         </div>
-                          <p className="text-sm text-foreground/90">
-                            <ParsedText text={comment.content} />
-                          </p>
-                       </div>
+                               {comment.profiles?.verified && (
+                                 <div className="flex items-center justify-center w-3.5 h-3.5 bg-primary rounded-full">
+                                   <Check className="h-2.5 w-2.5 text-white stroke-2" />
+                                 </div>
+                               )}
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              @{comment.profiles?.username} · {new Date(comment.created_at).toLocaleTimeString()}
+                            </span>
+                          </div>
+                           <p className="text-sm text-foreground/90">
+                             <ParsedText text={comment.content} />
+                           </p>
+                        </div>
                     </div>
                   ))}
                   

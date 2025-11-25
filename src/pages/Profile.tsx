@@ -14,7 +14,7 @@ import AuthModal from '@/components/AuthModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Supabase Data Types
-type SupabasePing = {
+type SupabasePost = {
   id: string;
   content: string;
   created_at: string;
@@ -31,7 +31,7 @@ interface ProfileData {
 }
 
 interface UserProfile extends ProfileData {
-  pings: SupabasePing[];
+  posts: SupabasePost[];
 }
 
 // Define a default profile for loading states or errors
@@ -43,7 +43,7 @@ const DEFAULT_PROFILE: UserProfile = {
   verified: false,
   location: null,
   created_at: new Date().toISOString(),
-  pings: [],
+  posts: [],
 };
 
 const Profile = () => {
@@ -79,15 +79,21 @@ const Profile = () => {
      console.log('Profile.tsx: Attempting to fetch profile for:', targetUser);
      
      // 1. Fetch Profile Data
+     console.log('Profile.tsx: Fetching profile data for:', targetUser);
      const { data: profileData, error: profileError } = await supabase
        .from('profiles')
        .select(`id, username, display_name, bio, verified, location, created_at`)
        .eq('username', targetUser)
        .single();
        
-     if (profileError || !profileData) {
-       console.error('Profile.tsx: Error fetching profile or profile not found:', profileError);
-       console.log('Profile.tsx: profileData:', profileData);
+     if (profileError) {
+       console.error('Profile.tsx: Error fetching profile:', profileError);
+       setUserProfile(null);
+       setLoading(false);
+       return;
+     }
+     if (!profileData) {
+       console.warn('Profile.tsx: No profile data found for:', targetUser);
        setUserProfile(null);
        setLoading(false);
        return;
@@ -95,20 +101,22 @@ const Profile = () => {
      console.log('Profile.tsx: Successfully fetched profileData:', profileData);
      
      // 2. Fetch User Pings
-     const { data: pingsData, error: pingsError } = await supabase
+     console.log('Profile.tsx: Fetching posts for user ID:', profileData.id);
+     const { data: postsData, error: postsError } = await supabase
        .from('pings')
        .select(`id, content, created_at`)
        .eq('user_id', profileData.id)
        .order('created_at', { ascending: false });
 
-     if (pingsError) {
-        console.error('Profile.tsx: Error fetching pings:', pingsError);
-        // Continue with profile data but empty pings
+     if (postsError) {
+        console.error('Profile.tsx: Error fetching posts:', postsError);
+        // Continue with profile data but empty posts
      }
-     console.log('Profile.tsx: Pings fetched:', pingsData);
+     console.log('Profile.tsx: Posts fetched:', postsData);
 
      // 3. Check for existing friend request from authUser to this profile
      if (authUser && authUser.id !== profileData.id) {
+       console.log('Profile.tsx: Checking for existing friend request from', authUser.id, 'to', profileData.id);
        const { data: friendRequestData, error: friendRequestError } = await supabase
          .from('friend_requests')
          .select('id')
@@ -127,7 +135,7 @@ const Profile = () => {
 
      setUserProfile({
        ...profileData,
-       pings: pingsData || [],
+       posts: postsData || [],
      } as UserProfile);
      setLoading(false);
      console.log('Profile.tsx: setUserProfile completed.');
@@ -182,10 +190,16 @@ const Profile = () => {
 
     setLoading(true); // Indicate loading while sending request
 
+    console.log('Profile.tsx: Attempting to send friend request from', authUser.id, 'to', profile.id);
     const { error } = await supabase.from('friend_requests').insert({
       from_user_id: authUser.id,
       to_user_id: profile.id,
     });
+    if (error) {
+      console.error('Profile.tsx: Error sending friend request:', error);
+    } else {
+      console.log('Profile.tsx: Friend request sent successfully.');
+    }
 
     setLoading(false); // End loading
 
@@ -301,8 +315,8 @@ const Profile = () => {
 
           <div className="flex gap-6 text-sm">
             <div>
-              <span className="font-bold text-foreground">{profile.pings.length}</span>
-              <span className="text-muted-foreground ml-1">Pings</span>
+              <span className="font-bold text-foreground">{profile.posts.length}</span>
+              <span className="text-muted-foreground ml-1">Posts</span>
             </div>
             <div>
               <span className="font-bold text-foreground">0</span>
@@ -316,19 +330,19 @@ const Profile = () => {
         </div>
 
         <div className="mb-4">
-          <h3 className="text-xl font-semibold mb-4">{isOwnProfile ? 'Your Pings' : `${profile.display_name}'s Pings`}</h3>
+          <h3 className="text-xl font-semibold mb-4">{isOwnProfile ? 'Your Posts' : `${profile.display_name}'s Posts`}</h3>
           <div className="space-y-4">
-            {profile.pings.map((ping, index) => (
+            {profile.posts.map((post, index) => (
               <div
-                key={ping.id}
+                key={post.id}
                 className="glass rounded-3xl p-6 shadow-md animate-fade-in"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <p className="text-foreground/90 mb-2">
-                  <ParsedText text={ping.content} />
+                  <ParsedText text={post.content} />
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(ping.created_at).toLocaleString()}
+                  {new Date(post.created_at).toLocaleString()}
                 </p>
               </div>
             ))}
