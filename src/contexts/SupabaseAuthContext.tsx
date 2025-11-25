@@ -21,44 +21,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false); // Initialize isAdmin state
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        console.log('Auth state changed:', _event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        if (session?.user) {
-          // Fetch admin status when user session changes
-          supabase
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', session.user.id)
-            .single()
-            .then(({ data, error }) => {
-              if (error) {
-                console.error('Error fetching admin status:', error.message);
-                setIsAdmin(false);
-              } else {
-                setIsAdmin(data?.is_admin ?? false);
-              }
-            });
-        } else {
-          setIsAdmin(false);
-        }
-      }
-    );
+    let isMounted = true;
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session);
-      if (!session) {
-        setLoading(false);
+    const handleAuthStateChange = (_event: string, session: Session | null) => {
+      if (!isMounted) return;
+      console.log('Auth state changed:', _event, session);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false); // Only set loading to false here, after the listener has processed
+      if (session?.user) {
+        supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data, error }) => {
+            if (!isMounted) return;
+            if (error) {
+              console.error('Error fetching admin status:', error.message);
+              setIsAdmin(false);
+            } else {
+              setIsAdmin(data?.is_admin ?? false);
+            }
+          });
+      } else {
+        setIsAdmin(false);
       }
-      // The onAuthStateChange listener will handle setting the user and session if it exists.
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      console.log('Initial session check:', session);
+      if (session) {
+        // If an initial session exists, manually trigger the handler
+        handleAuthStateChange('INITIAL_SESSION', session);
+      } else {
+        setLoading(false); // No session initially, so we are loaded
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

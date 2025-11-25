@@ -12,6 +12,8 @@ interface Post {
   } | null;
   likes: number;
   comments: number;
+  views: number;
+  engagement_score?: number;
 }
 
 const Feed: React.FC = () => {
@@ -23,7 +25,7 @@ const Feed: React.FC = () => {
     const fetchPosts = async () => {
       const { data, error } = await supabase
         .from('pings')
-        .select('*, profiles(username)')
+        .select('*, profiles(username), views')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -41,9 +43,17 @@ const Feed: React.FC = () => {
             .select('*', { count: 'exact' })
             .eq('post_id', post.id);
 
-          return { ...post, likes: likesCount || 0, comments: commentsCount || 0 };
+          const engagementScore = (likesCount || 0) * 2 + (commentsCount || 0) + (post.views || 0) / 2;
+          return { ...post, likes: likesCount || 0, comments: commentsCount || 0, views: post.views || 0, engagement_score: engagementScore };
         }));
-        setPosts(postsWithCounts as Post[]);
+        // Sort posts by engagement_score (descending) then by created_at (descending)
+        const sortedPosts = postsWithCounts.sort((a, b) => {
+          if (b.engagement_score !== a.engagement_score) {
+            return b.engagement_score - a.engagement_score;
+          }
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        setPosts(sortedPosts as Post[]);
       }
       setLoading(false);
     };

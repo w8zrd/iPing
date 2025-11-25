@@ -7,6 +7,7 @@ import { ArrowLeft, Check, Send, Image as ImageIcon, X, CheckCheck } from 'lucid
 import { ParsedText } from '@/lib/textParser';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/lib/supabase';
 
 
 const ChatConversation = () => {
@@ -16,15 +17,50 @@ const ChatConversation = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [chatImage, setChatImage] = useState<string | null>(null);
   const [chat, setChat] = useState<any | null>(null);
-  const { currentUser, supabase } = useAuth();
+  const { user: currentUser } = useAuth();
+  const { markChatAsRead, fetchChatDetails, fetchChatMessages, sendMessage, subscribeToChatMessages } = useChatContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
 
+  const otherParticipant = chat?.chat_participants?.find(
+    (p: any) => p.user_id !== currentUser?.id
+  );
+
   useEffect(() => {
-    if (chatId) {
+    if (!chatId || !currentUser) return;
+
+    const loadChatData = async () => {
+      setLoading(true);
+      const details = await fetchChatDetails(chatId);
+      if (details) {
+        setChat(details);
+      } else {
+        // Handle chat not found or error
+        navigate('/chats');
+        return;
+      }
+
+      const fetchedMessages = await fetchChatMessages(chatId);
+      setMessages(fetchedMessages);
       markChatAsRead(chatId);
-    }
-  }, [chatId, markChatAsRead]);
+      setLoading(false);
+    };
+
+    loadChatData();
+
+    const unsubscribe = subscribeToChatMessages(chatId, (newMessage) => {
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      markChatAsRead(chatId); // Mark as read when a new message comes in
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [chatId, currentUser, navigate, fetchChatDetails, fetchChatMessages, markChatAsRead, subscribeToChatMessages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,33 +75,10 @@ const ChatConversation = () => {
   };
 
   const handleSend = async () => {
-    if (messageContent.trim() || chatImage) {
-      const { data, error } = await supabase.from('messages').insert([
-        {
-          chat_id: chatId,
-          sender_id: currentUser?.id,
-          content: messageContent,
-          // image: chatImage, // To be implemented later
-        },
-      ]);
-
-      if (error) {
-        console.error('Error sending message:', error);
-      } else {
-        // Optimistically update the UI with the new message
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            chat_id: chatId,
-            sender_id: currentUser?.id,
-            content: messageContent,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-        setMessageContent('');
-        setChatImage(null);
-        // fetchMessages(); // Re-fetch all messages to ensure consistency, or handle real-time updates
-      }
+    if ((messageContent.trim() || chatImage) && chatId) {
+      await sendMessage(chatId, messageContent);
+      setMessageContent('');
+      setChatImage(null);
     }
   };
 
