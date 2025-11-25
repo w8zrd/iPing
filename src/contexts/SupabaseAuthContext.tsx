@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, MutableRefObject } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -21,50 +21,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false); // Initialize isAdmin state
 
   useEffect(() => {
-    let isMounted = true;
+    const isMounted = { current: true };
 
-    const handleAuthStateChange = (_event: string, session: Session | null) => {
-      if (!isMounted) return;
+const fetchUserProfile = async (userId: string, isMounted: React.MutableRefObject<boolean>) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', userId)
+    .single();
+
+  if (!isMounted.current) return { isAdmin: false };
+
+  if (error) {
+    console.error('Error fetching admin status:', error.message);
+    return { isAdmin: false };
+  }
+  return { isAdmin: data?.is_admin ?? false };
+};
+
+    const handleAuthStateChange = async (_event: string, session: Session | null) => {
+      if (!isMounted.current) return;
       console.log('Auth state changed:', _event, session);
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false); // Only set loading to false here, after the listener has processed
+
       if (session?.user) {
-        supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data, error }) => {
-            if (!isMounted) return;
-            if (error) {
-              console.error('Error fetching admin status:', error.message);
-              setIsAdmin(false);
-            } else {
-              setIsAdmin(data?.is_admin ?? false);
-            }
-          });
+        const { isAdmin } = await fetchUserProfile(session.user.id, { current: isMounted.current });
+        setIsAdmin(isAdmin);
       } else {
         setIsAdmin(false);
       }
+      setLoading(false); // Set loading to false after all async operations
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return;
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted.current) return;
       console.log('Initial session check:', session);
       if (session) {
-        // If an initial session exists, manually trigger the handler
-        handleAuthStateChange('INITIAL_SESSION', session);
+        await handleAuthStateChange('INITIAL_SESSION', session);
       } else {
-        setLoading(false); // No session initially, so we are loaded
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+        setLoading(false);
+      }
+    }).catch((error) => {
+      console.error('Error fetching initial session:', error);
+      if (isMounted.current) {
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+        setLoading(false);
       }
     });
 
     return () => {
-      isMounted = false;
+      isMounted.current = false;
       subscription.unsubscribe();
     };
   }, []);

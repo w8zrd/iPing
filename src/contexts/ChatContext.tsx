@@ -50,8 +50,8 @@ interface ChatContextType {
   sendMessage: (chatId: string, content: string) => Promise<void>;
   subscribeToChatMessages: (chatId: string, onNewMessage: (message: Message) => void) => () => void;
   createPersonalChat: (participantId: string) => Promise<Chat | null>;
-  fetchChatDetails: (chatId: string) => Promise<Chat | null>;
-  fetchChatMessages: (chatId: string) => Promise<Message[]>;
+  fetchChatDetails: (chatId: string, onUpdate: (chat: Chat) => void) => () => void;
+  fetchChatMessages: (chatId: string, onUpdate: (messages: Message[]) => void) => () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -150,11 +150,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       },
       (payload) => {
         console.log('Chat update received!', payload);
-        // Check if the updated chat is one the user is a participant of
-        // This is a more general listener, we re-fetch to ensure data consistency
-        if (chats.some(chat => chat.id === payload.new.id)) {
-          handleChatUpdate();
-        }
+        // Re-fetch to ensure data consistency if any chat the user is part of is updated
+        handleChatUpdate();
       }
     );
 
@@ -169,10 +166,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       },
       (payload) => {
         console.log('New message received!', payload);
-        // Check if the new message belongs to a chat the user is a participant of
-        if (chats.some(chat => chat.id === payload.new.chat_id)) {
-          handleChatUpdate();
-        }
+        // Re-fetch to ensure data consistency if a new message is relevant
+        handleChatUpdate();
       }
     );
     
@@ -181,7 +176,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(chatChannel);
     };
-  }, [fetchChats, user]); // Removed 'chats' from dependencies
+  }, [fetchChats, user]);
 
   const markChatAsRead = async (chatId: string) => {
     if (!user) return;
@@ -315,41 +310,107 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return newChat;
   };
 
-  const fetchChatDetails = useCallback(async (chatId: string) => {
-    const { data, error } = await supabase
-      .from('chats')
-      .select(`
-        id, created_at, chat_name, is_group_chat, last_message_id,
-        chat_participants (
-          id, user_id,
-          profiles (display_name, username, verified, avatar_url)
-        )
-      `)
-      .eq('id', chatId)
-      .single();
+  const fetchChatDetails = useCallback((chatId: string, onUpdate: (chat: Chat) => void) => {
+    const chatChannel = supabase.channel(`chat_details:${chatId}`);
 
-    if (error) {
-      console.error('Error fetching chat details:', error.message);
-      return null;
-    }
-    return data as Chat;
+    const handleChatUpdate = async () => {
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          id, created_at, chat_name, is_group_chat, last_message_id,
+          chat_participants (
+            id, user_id,
+            profiles (display_name, username, verified, avatar_url)
+          )
+        `)
+        .eq('id', chatId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching chat details:', error.message);
+        // Optionally, handle error by notifying onUpdate with null or an error object
+        return;
+      }
+      onUpdate(data as Chat);
+    };
+
+    chatChannel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'chats',
+        filter: `id=eq.${chatId}`
+      },
+      (payload) => {
+        console.log('Chat details update received!', payload);
+        handleChatUpdate();
+      }
+    );
+
+    chatChannel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT', // For new participants being added to a chat
+        schema: 'public',
+        table: 'chat_participants',
+        filter: `chat_id=eq.${chatId}`
+      },
+      (payload) => {
+        console.log('Chat participant added received!', payload);
+        handleChatUpdate();
+      }
+    );
+
+    chatChannel.subscribe();
+    handleChatUpdate(); // Initial fetch
+
+    return () => {
+      supabase.removeChannel(chatChannel);
+    };
   }, []);
 
-  const fetchChatMessages = useCallback(async (chatId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        id, created_at, chat_id, sender_id, content, is_read,
-        sender:profiles!inner (display_name, username, verified, avatar_url)
-      `)
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
+  const fetchChatMessages = useCallback((chatId: string, onUpdate: (messages: Message[]) => void) => {
+    const messagesChannel = supabase.channel(`chat_messages:${chatId}`);
 
-    if (error) {
-      console.error('Error fetching chat messages:', error.message);
-      return [];
-    }
-    return data as Message[];
+    const handleMessageUpdate = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id, created_at, chat_id, sender_id, content, is_read,
+          sender:profiles!inner (display_name, username, verified, avatar_url)
+        `)
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching chat messages:', error.message);
+        onUpdate([]); // Notify with empty array on error
+        return;
+      }
+      onUpdate(data as any as Message[]);
+    };
+
+    messagesChannel.on(
+      'postgres_changes',
+      {
+        event: '*', // Listen for INSERT, UPDATE, DELETE
+        schema: 'public',
+        table: 'messages',
+        filter: `chat_id=eq.${chatId}`
+      },
+      (payload) => {
+        console.log('Message change received!', payload);
+        handleMessageUpdate();
+      }
+    );
+
+    messagesChannel.subscribe();
+    handleMessageUpdate(); // Initial fetch
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+    };
   }, []);
 
 

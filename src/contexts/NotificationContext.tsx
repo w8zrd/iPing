@@ -1,32 +1,127 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from './SupabaseAuthContext';
+
+export interface Notification {
+  id: string;
+  created_at: string;
+  user_id: string;
+  type: 'like' | 'comment' | 'follow' | 'mention' | 'friend_request';
+  source_id: string; // ID of the post, comment, or user that triggered the notification
+  is_read: boolean;
+  sender?: {
+    display_name: string;
+    username: string;
+    verified: boolean;
+    avatar_url: string;
+  };
+  pings?: {
+    id: string;
+    content: string;
+  };
+  comments?: {
+    id: string;
+    content: string;
+  };
+}
 
 interface NotificationContextType {
-  readNotifications: Set<string>;
-  markNotificationAsRead: (notificationId: string) => void;
+  notifications: Notification[];
+  loadingNotifications: boolean;
   unreadCount: number;
+  fetchNotifications: () => Promise<void>; // Make fetchNotifications available in context
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
-  const [readNotifications, setReadNotifications] = useState<Set<string>>(() => {
-    const stored = localStorage.getItem('readNotifications');
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  });
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      setLoadingNotifications(false);
+      return;
+    }
+
+    setLoadingNotifications(true);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select(`
+        id, created_at, user_id, type, source_id, is_read,
+        sender:profiles (display_name, username, verified, avatar_url),
+        pings (id, content),
+        comments (id, content)
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching notifications:', error.message);
+      setNotifications([]);
+    } else {
+      setNotifications(data as any as Notification[]);
+    }
+    setLoadingNotifications(false);
+  }, [user]);
 
   useEffect(() => {
-    localStorage.setItem('readNotifications', JSON.stringify(Array.from(readNotifications)));
-  }, [readNotifications]);
+    if (!user) {
+      setNotifications([]);
+      setLoadingNotifications(false);
+      return;
+    }
 
-  const markNotificationAsRead = (notificationId: string) => {
-    setReadNotifications((prev) => new Set(prev).add(notificationId));
+    fetchNotifications();
+
+    const notificationChannel = supabase.channel(`user_notifications:${user.id}`);
+
+    notificationChannel.on(
+      'postgres_changes',
+      {
+        event: '*', // Listen for INSERT, UPDATE, DELETE
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      },
+      (payload) => {
+        console.log('Notification change received!', payload);
+        fetchNotifications();
+      }
+    ).subscribe();
+
+    return () => {
+      supabase.removeChannel(notificationChannel);
+    };
+  }, [user, fetchNotifications]);
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error marking notification as read:', error.message);
+    } else {
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notification =>
+          notification.id === notificationId ? { ...notification, is_read: true } : notification
+        )
+      );
+    }
   };
 
-  // Mock unread count - in real app, this would come from backend
-  const unreadCount = 2 - readNotifications.size;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <NotificationContext.Provider value={{ readNotifications, markNotificationAsRead, unreadCount: Math.max(0, unreadCount) }}>
+    <NotificationContext.Provider value={{ notifications, loadingNotifications, unreadCount, fetchNotifications, markNotificationAsRead }}>
       {children}
     </NotificationContext.Provider>
   );

@@ -16,9 +16,7 @@ import ChatConversation from "./pages/ChatConversation";
 import SupabaseAuth from "./pages/SupabaseAuth";
 import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
-import AuthModal from "./components/AuthModal";
 import PostDetail from "./pages/PostDetail"; // Import PostDetail
-import { useState } from "react";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +38,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const AuthRequiredWrapper = ({ children, openAuthModal }: { children: React.ReactNode; openAuthModal: () => void; }) => {
+const AuthRequiredWrapper = ({ children }: { children: React.ReactNode; }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -52,7 +50,6 @@ const AuthRequiredWrapper = ({ children, openAuthModal }: { children: React.Reac
   }
   
   if (!user) {
-    openAuthModal();
     return <Navigate to="/auth" replace />; // Redirect to auth page if not logged in
   }
   
@@ -60,11 +57,6 @@ const AuthRequiredWrapper = ({ children, openAuthModal }: { children: React.Reac
 };
 
 const App = () => {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-  const openAuthModal = () => setIsAuthModalOpen(true);
-  const closeAuthModal = () => setIsAuthModalOpen(false);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ChatProvider>
@@ -75,19 +67,18 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/auth" element={<SupabaseAuth />} />
-                <Route path="/" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
-                <Route path="/:username" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
-                <Route path="/profile" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
-                <Route path="/post/:id" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><PostDetail /></AuthRequiredWrapper>} /> {/* New route for PostDetail */}
-                <Route path="/search" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><SearchResults /></AuthRequiredWrapper>} />
-                <Route path="/notifications" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Notifications /></AuthRequiredWrapper>} />
-                <Route path="/chats" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Chats /></AuthRequiredWrapper>} />
-                <Route path="/chats/:chatId" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><ChatConversation /></AuthRequiredWrapper>} />
-                <Route path="/settings" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Settings /></AuthRequiredWrapper>} />
+                <Route path="/" element={<AuthRequiredWrapper><Home /></AuthRequiredWrapper>} />
+                <Route path="/:username" element={<AuthRequiredWrapper><Profile /></AuthRequiredWrapper>} />
+                <Route path="/profile" element={<AuthRequiredWrapper><Profile /></AuthRequiredWrapper>} />
+                <Route path="/post/:id" element={<AuthRequiredWrapper><PostDetail /></AuthRequiredWrapper>} /> {/* New route for PostDetail */}
+                <Route path="/search" element={<AuthRequiredWrapper><SearchResults /></AuthRequiredWrapper>} />
+                <Route path="/notifications" element={<AuthRequiredWrapper><Notifications /></AuthRequiredWrapper>} />
+                <Route path="/chats" element={<AuthRequiredWrapper><Chats /></AuthRequiredWrapper>} />
+                <Route path="/chats/:chatId" element={<AuthRequiredWrapper><ChatConversation /></AuthRequiredWrapper>} />
+                <Route path="/settings" element={<AuthRequiredWrapper><Settings /></AuthRequiredWrapper>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-            <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
           </TooltipProvider>
         </NotificationProvider>
       </ChatProvider>

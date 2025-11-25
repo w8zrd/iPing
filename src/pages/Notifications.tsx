@@ -4,78 +4,39 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Check, Heart, UserPlus, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useNotificationContext } from '@/contexts/NotificationContext';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-
-interface Notification {
-  id: string;
-  type: 'like' | 'comment' | 'friend_request' | 'follow';
-  user: {
-    username: string;
-    displayName: string;
-    verified: boolean;
-  };
-  text: string;
-  timestamp: Date;
-  read: boolean;
-  pingId?: string;
-  commentId?: string;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'like',
-    user: { username: 'alex', displayName: 'Alex Chen', verified: true },
-    text: 'liked your ping',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    read: false,
-    pingId: 'ping-1',
-  },
-  {
-    id: '2',
-    type: 'friend_request',
-    user: { username: 'sarah', displayName: 'Sarah Johnson', verified: false },
-    text: 'sent you a friend request',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'comment',
-    user: { username: 'mike', displayName: 'Mike Davis', verified: true },
-    text: 'commented on your ping',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    read: true,
-    pingId: 'ping-2',
-    commentId: 'comment-1',
-  },
-];
+import { Notification, useNotificationContext } from '@/contexts/NotificationContext';
 
 const Notifications = () => {
   const navigate = useNavigate();
-  const { readNotifications, markNotificationAsRead } = useNotificationContext();
+  const { notifications, loadingNotifications, markNotificationAsRead, fetchNotifications } = useNotificationContext();
   const { toast } = useToast();
   const [friendRequestActions, setFriendRequestActions] = useState<Record<string, 'accepted' | 'rejected'>>({});
 
   useEffect(() => {
-    // Mark all visible notifications as read when page loads
-    mockNotifications.forEach(notif => {
-      if (!notif.read) {
-        markNotificationAsRead(notif.id);
-      }
-    });
-  }, [markNotificationAsRead]);
+    fetchNotifications(); // Initial fetch and subscription
+  }, [fetchNotifications]);
 
-  const getIcon = (type: string) => {
+  // Mark notifications as read when they are viewed
+  useEffect(() => {
+    if (!loadingNotifications && notifications.length > 0) {
+      notifications.filter(n => !n.is_read).forEach(notif => {
+        markNotificationAsRead(notif.id);
+      });
+    }
+  }, [notifications, loadingNotifications, markNotificationAsRead]);
+
+  const getIcon = (type: Notification['type']) => {
     switch (type) {
       case 'like':
         return <Heart className="h-5 w-5 text-red-500 fill-red-500" />;
-      case 'friend_request':
+      case 'follow':
         return <UserPlus className="h-5 w-5 text-primary" />;
       case 'comment':
         return <MessageCircle className="h-5 w-5 text-blue-500" />;
+      case 'mention':
+        return <MessageCircle className="h-5 w-5 text-purple-500" />;
       default:
         return null;
     }
@@ -84,23 +45,25 @@ const Notifications = () => {
   const handleNotificationClick = (notification: Notification) => {
     markNotificationAsRead(notification.id);
     
-    if (notification.type === 'like' && notification.pingId) {
-      navigate(`/?ping=${notification.pingId}`);
-    } else if (notification.type === 'comment' && notification.pingId) {
-      navigate(`/?ping=${notification.pingId}&openComments=true`);
-    } else if (notification.type === 'friend_request' || notification.type === 'follow') {
-      navigate(`/profile/${notification.user.username}`);
+    if (notification.type === 'like' && notification.pings?.id) {
+      navigate(`/post/${notification.pings.id}`);
+    } else if (notification.type === 'comment' && notification.pings?.id) {
+      navigate(`/post/${notification.pings.id}?openComments=true`);
+    } else if (notification.type === 'follow' && notification.sender?.username) {
+      navigate(`/profile/${notification.sender.username}`);
+    } else if (notification.type === 'mention' && notification.pings?.id) {
+      navigate(`/post/${notification.pings.id}?highlightComment=${notification.comments?.id}`);
     }
   };
 
-  const handleFriendRequest = (notificationId: string, action: 'accepted' | 'rejected', displayName: string) => {
+  const handleFriendRequest = (notificationId: string, action: 'accepted' | 'rejected', senderUsername: string) => {
     setFriendRequestActions(prev => ({ ...prev, [notificationId]: action }));
     markNotificationAsRead(notificationId);
     
-    // Simulate notification to the other user
+    // TODO: Implement actual backend call to accept/reject friend request (e.g., call a Supabase function)
     toast({
       title: action === 'accepted' ? 'Friend request accepted' : 'Friend request declined',
-      description: `${displayName} will be notified about your response`,
+      description: `@${senderUsername} will be notified about your response`,
     });
   };
 
@@ -112,86 +75,106 @@ const Notifications = () => {
           <h1 className="text-3xl font-bold">Notifications</h1>
         </div>
 
-        <div className="glass-strong rounded-3xl shadow-md overflow-hidden">
-          {mockNotifications.map((notification, index) => (
-            <div
-              key={notification.id}
-              className={`p-4 animate-fade-in border-b border-border/30 last:border-b-0 ${
-                !readNotifications.has(notification.id) && !notification.read ? 'bg-primary/5' : ''
-              } ${notification.type === 'friend_request' ? '' : 'cursor-pointer hover:bg-primary/5 transition-apple'}`}
-              style={{ animationDelay: `${index * 0.05}s` }}
-              onClick={() => notification.type !== 'friend_request' && handleNotificationClick(notification)}
-            >
-              <div className="flex items-start gap-3">
-                <div className="relative">
-                  <Avatar className="w-12 h-12">
-                    <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
-                      {notification.user.displayName[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                    {getIcon(notification.type)}
+        {loadingNotifications ? (
+          <div className="flex items-center justify-center h-48">
+            <p className="text-muted-foreground">Loading notifications...</p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="flex items-center justify-center h-48">
+            <p className="text-muted-foreground">No notifications yet.</p>
+          </div>
+        ) : (
+          <div className="glass-strong rounded-3xl shadow-md overflow-hidden">
+            {notifications.map((notification, index) => (
+              <div
+                key={notification.id}
+                className={`p-4 animate-fade-in border-b border-border/30 last:border-b-0 ${
+                  !notification.is_read ? 'bg-primary/5' : ''
+                } ${notification.type === 'friend_request' ? '' : 'cursor-pointer hover:bg-primary/5 transition-apple'}`}
+                style={{ animationDelay: `${index * 0.05}s` }}
+                onClick={() => notification.type !== 'friend_request' && handleNotificationClick(notification)}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="relative">
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
+                        {notification.sender?.display_name ? notification.sender.display_name?.toUpperCase() : '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                      {getIcon(notification.type)}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold">{notification.user.displayName}</span>
-                    {notification.user.verified && (
-                      <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
-                        <Check className="h-3 w-3 text-white stroke-[3]" />
-                      </div>
-                    )}
-                    <span className="text-muted-foreground text-sm">
-                      @{notification.user.username}
-                    </span>
-                  </div>
-                  {notification.type === 'friend_request' && friendRequestActions[notification.id] ? (
-                    <>
-                      <p className="text-sm text-foreground/80">
-                        You {friendRequestActions[notification.id]} @{notification.user.username}'s friend request
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {notification.timestamp.toLocaleString()}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-foreground/80">{notification.text}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {notification.timestamp.toLocaleString()}
-                      </p>
-                      
-                      {notification.type === 'friend_request' && (
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendRequest(notification.id, 'accepted', notification.user.displayName);
-                            }}
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendRequest(notification.id, 'rejected', notification.user.displayName);
-                            }}
-                          >
-                            Decline
-                          </Button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold">{notification.sender?.display_name || 'Unknown User'}</span>
+                      {notification.sender?.verified && (
+                        <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
+                          <Check className="h-3 w-3 text-white stroke-" />
                         </div>
                       )}
-                    </>
-                  )}
+                      <span className="text-muted-foreground text-sm">
+                        @{notification.sender?.username || 'unknown'}
+                      </span>
+                    </div>
+                    {notification.type === 'friend_request' && friendRequestActions[notification.id] ? (
+                      <>
+                        <p className="text-sm text-foreground/80">
+                          You {friendRequestActions[notification.id]} @{notification.sender?.username || 'unknown'}'s friend request
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(notification.created_at).toLocaleString()}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-foreground/80">
+                          {notification.type === 'like' && notification.pings?.content
+                            ? `liked your ping: "${notification.pings.content}"`
+                            : notification.type === 'comment' && notification.comments?.content
+                            ? `commented on your ping: "${notification.comments.content}"`
+                            : notification.type === 'follow'
+                            ? `started following you`
+                            : notification.type === 'mention' && notification.pings?.content
+                            ? `mentioned you in a ping: "${notification.pings.content}"`
+                            : `New ${notification.type} notification`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(notification.created_at).toLocaleString()}
+                        </p>
+                        
+                        {notification.type === 'friend_request' && (
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFriendRequest(notification.id, 'accepted', notification.sender?.username || 'unknown');
+                              }}
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFriendRequest(notification.id, 'rejected', notification.sender?.username || 'unknown');
+                              }}
+                            >
+                              Decline
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Navigation />
