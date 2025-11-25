@@ -17,6 +17,7 @@ import SupabaseAuth from "./pages/SupabaseAuth";
 import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
 import AuthModal from "./components/AuthModal";
+import PostDetail from "./pages/PostDetail"; // Import PostDetail
 import { useState } from "react";
 
 const queryClient = new QueryClient();
@@ -77,7 +78,7 @@ const App = () => {
                 <Route path="/" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
                 <Route path="/:username" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
                 <Route path="/profile" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Profile /></AuthRequiredWrapper>} />
-                <Route path="/:username/ping/:pingId" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Home /></AuthRequiredWrapper>} />
+                <Route path="/post/:id" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><PostDetail /></AuthRequiredWrapper>} /> {/* New route for PostDetail */}
                 <Route path="/search" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><SearchResults /></AuthRequiredWrapper>} />
                 <Route path="/notifications" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Notifications /></AuthRequiredWrapper>} />
                 <Route path="/chats" element={<AuthRequiredWrapper openAuthModal={openAuthModal}><Chats /></AuthRequiredWrapper>} />

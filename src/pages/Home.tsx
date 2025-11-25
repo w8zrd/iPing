@@ -75,7 +75,7 @@ const Home = () => {
         variant: 'destructive',
       });
     } else {
-      setPings((prevPings) => prevPings.filter((ping) => ping.id !== pingId));
+      setPosts((prevPosts) => prevPosts.filter((ping) => ping.id !== pingId));
       toast({
         title: 'Ping deleted!',
         description: 'Your ping has been removed.',
@@ -108,7 +108,7 @@ const Home = () => {
 
     if (!error && data) {
       console.log('Home.tsx: Pings fetched successfully:', data);
-      setPings(data as any);
+      setPosts(data as any);
     } else {
       console.error('Home.tsx: Error fetching pings:', error);
     }
@@ -238,7 +238,7 @@ const Home = () => {
       return;
     }
     
-    const ping = pings.find(p => p.id === pingId);
+    const ping = posts.find(p => p.id === pingId);
     const alreadyLiked = ping?.likes?.some(like => like.user_id === user.id);
 
     if (alreadyLiked) {
@@ -322,7 +322,7 @@ const Home = () => {
     setExpandedPing(expandedPing === pingId ? null : pingId);
   };
 
-  const handleShare = async (ping: Ping) => {
+  const handleShare = async (ping: Post) => {
     const shareUrl = `${window.location.origin}/?ping=${ping.id}`;
     const shareText = `Check out this ping from ${ping.profiles?.display_name} on iPing!`;
     
@@ -415,7 +415,7 @@ const Home = () => {
         </div>
 
         <div className="space-y-4">
-          {pings.map((ping, index) => (
+          {posts.map((ping, index) => (
             <div
               key={ping.id}
               ref={(el) => (pingRefs.current[ping.id] = el)}

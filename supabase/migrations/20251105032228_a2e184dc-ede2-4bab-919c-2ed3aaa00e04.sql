@@ -58,42 +58,52 @@ CREATE TABLE public.friend_requests (
   UNIQUE(from_user_id, to_user_id)
 );
 
--- Create chats table
-CREATE TABLE public.chats (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+-- Alter chats table
+ALTER TABLE public.chats
+ADD COLUMN chat_name TEXT,
+ADD COLUMN is_group_chat BOOLEAN DEFAULT FALSE,
+ADD COLUMN last_message_id UUID;
 
--- Create chat_participants table
-CREATE TABLE public.chat_participants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_id UUID REFERENCES public.chats(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  UNIQUE(chat_id, user_id)
-);
+-- Alter messages table
+ALTER TABLE public.messages
+RENAME COLUMN user_id TO sender_id; -- Rename user_id to sender_id
+ALTER TABLE public.messages
+ALTER COLUMN sender_id DROP NOT NULL; -- Make sender_id nullable if needed for system messages
+ALTER TABLE public.messages
+DROP COLUMN status; -- Remove status column
+ALTER TABLE public.messages
+ADD COLUMN is_read BOOLEAN DEFAULT FALSE; -- Add is_read column
+ALTER TABLE public.messages
+ALTER COLUMN content SET NOT NULL; -- Ensure content is NOT NULL
 
--- Create messages table
-CREATE TABLE public.messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_id UUID REFERENCES public.chats(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  content TEXT NOT NULL,
-  status TEXT DEFAULT 'sent' CHECK (status IN ('sent', 'delivered', 'seen')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+-- Alter chat_participants table
+ALTER TABLE public.chat_participants
+ADD COLUMN last_read_at TIMESTAMPTZ;
 
--- Create notifications table
-CREATE TABLE public.notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'friend_request')),
-  from_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  ping_id UUID REFERENCES public.pings(id) ON DELETE CASCADE,
-  friend_request_id UUID REFERENCES public.friend_requests(id) ON DELETE CASCADE,
-  is_read BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+-- Alter notifications table
+ALTER TABLE public.notifications
+DROP COLUMN from_user_id,
+DROP COLUMN ping_id,
+DROP COLUMN friend_request_id,
+ADD COLUMN type TEXT, -- Adjust type to be more general
+ADD COLUMN title TEXT,
+ADD COLUMN content TEXT,
+ADD COLUMN source_entity_id UUID,
+ADD COLUMN source_entity_type TEXT;
+
+ALTER TABLE public.notifications
+ALTER COLUMN type DROP NOT NULL; -- Make type nullable for initial update, then set as NOT NULL if needed
+ALTER TABLE public.notifications
+ALTER COLUMN title SET NOT NULL; -- Ensure title is NOT NULL
+ALTER TABLE public.notifications
+ALTER COLUMN content SET NOT NULL; -- Ensure content is NOT NULL
+
+-- Add foreign key constraint to chats.last_message_id
+ALTER TABLE public.chats
+ADD CONSTRAINT fk_last_message
+FOREIGN KEY (last_message_id)
+REFERENCES public.messages(id)
+ON DELETE SET NULL;
 
 -- Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

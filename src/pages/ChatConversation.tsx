@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -6,52 +6,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Check, Send, Image as ImageIcon, X, CheckCheck } from 'lucide-react';
 import { ParsedText } from '@/lib/textParser';
 import { useChatContext } from '@/contexts/ChatContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
-interface Message {
-  id: string;
-  senderId: string;
-  text: string;
-  timestamp: Date;
-  image?: string;
-  status?: 'sent' | 'delivered' | 'seen';
-}
-
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    senderId: 'alex',
-    text: 'Hey! Thanks for connecting! Love your pings about #design 🎨',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-  },
-  {
-    id: '2',
-    senderId: 'me',
-    text: 'Of course! Happy to connect @alex',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    status: 'delivered',
-  },
-  {
-    id: '3',
-    senderId: 'alex',
-    text: 'Thanks for the ping! Really appreciate it 🙏 Check out #iPing',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: '4',
-    senderId: 'me',
-    text: 'Awesome! 🚀',
-    timestamp: new Date(Date.now() - 1000 * 60 * 2),
-    status: 'seen',
-  },
-];
 
 const ChatConversation = () => {
   const { chatId } = useParams();
   const navigate = useNavigate();
-  const [message, setMessage] = useState('');
-  const [messages] = useState<Message[]>(mockMessages);
+  const [messageContent, setMessageContent] = useState('');
+  const [messages, setMessages] = useState<any[]>([]);
   const [chatImage, setChatImage] = useState<string | null>(null);
-  const { markChatAsRead } = useChatContext();
+  const [chat, setChat] = useState<any | null>(null);
+  const { currentUser, supabase } = useAuth();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (chatId) {
@@ -59,14 +26,6 @@ const ChatConversation = () => {
     }
   }, [chatId, markChatAsRead]);
 
-  // Mock chat data mapped by ID
-  const mockChats: Record<string, { user: { username: string; displayName: string; verified: boolean } }> = {
-    '1': { user: { username: 'alex', displayName: 'Alex Chen', verified: true } },
-    '2': { user: { username: 'sarah', displayName: 'Sarah Johnson', verified: false } },
-    '3': { user: { username: 'mike', displayName: 'Mike Davis', verified: true } },
-  };
-
-  const chat = mockChats[chatId || '1'] || mockChats['1'];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,30 +38,34 @@ const ChatConversation = () => {
     }
   };
 
-  const handleSend = () => {
-    if (message.trim() || chatImage) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        senderId: 'me',
-        text: message,
-        timestamp: new Date(),
-        status: 'sent',
-        ...(chatImage && { image: chatImage })
-      };
-      
-      // Update messages array with the new message
-      const updatedMessages = [...messages, newMessage];
-      
-      // Simulate delivery after 1 second
-      setTimeout(() => {
-        const deliveredMessages = updatedMessages.map(msg => 
-          msg.id === newMessage.id ? { ...msg, status: 'delivered' as const } : msg
-        );
-        // In real app, this would update state
-      }, 1000);
-      
-      setMessage('');
-      setChatImage(null);
+  const handleSend = async () => {
+    if (messageContent.trim() || chatImage) {
+      const { data, error } = await supabase.from('messages').insert([
+        {
+          chat_id: chatId,
+          sender_id: currentUser?.id,
+          content: messageContent,
+          // image: chatImage, // To be implemented later
+        },
+      ]);
+
+      if (error) {
+        console.error('Error sending message:', error);
+      } else {
+        // Optimistically update the UI with the new message
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            chat_id: chatId,
+            sender_id: currentUser?.id,
+            content: messageContent,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        setMessageContent('');
+        setChatImage(null);
+        // fetchMessages(); // Re-fetch all messages to ensure consistency, or handle real-time updates
+      }
     }
   };
 
@@ -160,42 +123,46 @@ const ChatConversation = () => {
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
             >
               <div
                 className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                  msg.senderId === 'me'
+                  msg.sender_id === currentUser?.id
                     ? 'bg-primary text-primary-foreground'
                     : 'glass-strong'
                 }`}
               >
-                {msg.text && (
+                {msg.content && (
                   <p className="text-sm">
-                    <ParsedText text={msg.text} />
+                    <ParsedText text={msg.content} />
                   </p>
                 )}
-                {msg.image && (
-                  <img 
-                    src={msg.image} 
-                    alt="Chat image" 
+                {/* Image handling to be implemented separately */}
+                {/* {msg.image && (
+                  <img
+                    src={msg.image}
+                    alt="Chat image"
                     className="rounded-xl max-w-full mt-2"
                   />
-                )}
+                )} */}
                 <div className="flex items-center gap-1.5 mt-1">
                   <p className="text-xs opacity-70">
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  {msg.senderId === 'me' && msg.status && (
-                    <span className={`${msg.senderId === 'me' ? 'text-primary-foreground' : ''}`}>
-                      {msg.status === 'sent' && <Check className="h-3 w-3" />}
-                      {msg.status === 'delivered' && <CheckCheck className="h-3 w-3" />}
-                      {msg.status === 'seen' && <CheckCheck className="h-3 w-3 text-green-400" />}
+                  {msg.sender_id === currentUser?.id && (
+                    <span className={`${msg.is_read ? 'text-green-400' : 'text-primary-foreground'}`}>
+                      {msg.is_read ? (
+                        <CheckCheck className="h-3 w-3" />
+                      ) : (
+                        <Check className="h-3 w-3" />
+                      )}
                     </span>
                   )}
                 </div>
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
       </main>
 
@@ -235,8 +202,8 @@ const ChatConversation = () => {
               </Button>
             </label>
             <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
               placeholder="Type a message..."
               className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl"
               onKeyDown={(e) => {
@@ -250,7 +217,7 @@ const ChatConversation = () => {
               onClick={handleSend}
               size="icon"
               className="rounded-full h-11 w-11 shrink-0"
-              disabled={!message.trim() && !chatImage}
+              disabled={!messageContent.trim() && !chatImage}
             >
               <Send className="h-5 w-5" />
             </Button>

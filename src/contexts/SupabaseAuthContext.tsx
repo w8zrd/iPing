@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isAdmin: boolean; // Add isAdmin to the context type
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, username: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -17,6 +18,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false); // Initialize isAdmin state
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -26,6 +28,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        if (session?.user) {
+          // Fetch admin status when user session changes
+          supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single()
+            .then(({ data, error }) => {
+              if (error) {
+                console.error('Error fetching admin status:', error.message);
+                setIsAdmin(false);
+              } else {
+                setIsAdmin(data?.is_admin ?? false);
+              }
+            });
+        } else {
+          setIsAdmin(false);
+        }
       }
     );
 
@@ -89,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

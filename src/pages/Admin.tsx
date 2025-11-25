@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 const Admin = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -23,37 +22,70 @@ const Admin = () => {
       return;
     }
 
-    const unsubscribe = onSnapshot(collection(db, 'pings'), (snapshot) => {
-      const uniqueUsers = new Map();
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.userId && !uniqueUsers.has(data.userId)) {
-          uniqueUsers.set(data.userId, {
-            id: data.userId,
-            email: data.userEmail,
-            verified: data.verified || false,
-            banned: false,
-          });
-        }
-      });
-      setUsers(Array.from(uniqueUsers.values()));
-    });
+    const fetchUsers = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, is_verified, is_banned');
 
-    return unsubscribe;
+      if (error) {
+        console.error('Error fetching users:', error.message);
+      } else {
+        setUsers(data.map(profile => ({
+          id: profile.id,
+          email: profile.email,
+          verified: profile.is_verified,
+          banned: profile.is_banned,
+        })));
+      }
+    };
+
+    fetchUsers();
   }, [isAdmin, navigate]);
 
-  const handleToggleVerification = (userId: string) => {
-    toast({
-      title: 'Badge Updated',
-      description: 'User verification status changed',
-    });
+  const handleToggleVerification = async (userId: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_verified: !currentStatus })
+      .eq('id', userId);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: `Failed to update verification status: ${error.message}`,
+        variant: 'destructive',
+      });
+    } else {
+      setUsers(prevUsers =>
+        prevUsers.map(u => (u.id === userId ? { ...u, verified: !currentStatus } : u))
+      );
+      toast({
+        title: 'Badge Updated',
+        description: 'User verification status changed',
+      });
+    }
   };
 
-  const handleToggleBan = (userId: string) => {
-    toast({
-      title: 'User Status Updated',
-      description: 'User ban status changed',
-    });
+  const handleToggleBan = async (userId: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_banned: !currentStatus })
+      .eq('id', userId);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: `Failed to update ban status: ${error.message}`,
+        variant: 'destructive',
+      });
+    } else {
+      setUsers(prevUsers =>
+        prevUsers.map(u => (u.id === userId ? { ...u, banned: !currentStatus } : u))
+      );
+      toast({
+        title: 'User Status Updated',
+        description: 'User ban status changed',
+      });
+    }
   };
 
   if (!isAdmin) return null;
@@ -130,7 +162,7 @@ const Admin = () => {
                     </div>
                   </div>
                   <Button
-                    onClick={() => handleToggleVerification(user.id)}
+                    onClick={() => handleToggleVerification(user.id, user.verified)}
                     variant={user.verified ? "default" : "outline"}
                     className="rounded-2xl transition-apple"
                   >
@@ -163,7 +195,7 @@ const Admin = () => {
                     </div>
                   </div>
                   <Button
-                    onClick={() => handleToggleBan(user.id)}
+                    onClick={() => handleToggleBan(user.id, user.banned)}
                     variant={user.banned ? "destructive" : "outline"}
                     className="rounded-2xl transition-apple"
                   >

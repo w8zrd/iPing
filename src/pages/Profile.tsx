@@ -32,6 +32,7 @@ interface ProfileData {
 
 interface UserProfile extends ProfileData {
   posts: SupabasePost[];
+  is_following: boolean; // Indicates if the current user is following this profile
 }
 
 // Define a default profile for loading states or errors
@@ -44,6 +45,7 @@ const DEFAULT_PROFILE: UserProfile = {
   location: null,
   created_at: new Date().toISOString(),
   posts: [],
+  is_following: false,
 };
 
 const Profile = () => {
@@ -57,22 +59,20 @@ const Profile = () => {
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [friendRequested, setFriendRequested] = useState(false); // Indicates if a request was just sent by the current user
-  const [existingFriendRequest, setExistingFriendRequest] = useState(false); // Indicates if there's an existing request
   const { toast } = useToast();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const openAuthModal = () => setIsAuthModalOpen(true);
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
- const isOwnProfile = authUser?.user_metadata.username === urlUsername;
+  const isOwnProfile = authUser?.user_metadata.username === urlUsername;
 
- useEffect(() => {
-   console.log('Profile useEffect triggered.');
-   if (authLoading) return;
-   
-   const targetUsername = urlUsername || authUser?.user_metadata.username as string;
-   console.log('Profile.tsx: targetUsername derived:', targetUsername);
+  useEffect(() => {
+    console.log('Profile useEffect triggered.');
+    if (authLoading) return;
+    
+    const targetUsername = urlUsername || (authUser?.user_metadata?.username as string);
+    console.log('Profile.tsx: targetUsername derived:', targetUsername);
 
    const fetchProfile = async (targetUser: string) => {
      setLoading(true);
@@ -114,28 +114,27 @@ const Profile = () => {
      }
      console.log('Profile.tsx: Posts fetched:', postsData);
 
-     // 3. Check for existing friend request from authUser to this profile
+     // 3. Check if authUser is following this profile
+     let isFollowing = false;
      if (authUser && authUser.id !== profileData.id) {
-       console.log('Profile.tsx: Checking for existing friend request from', authUser.id, 'to', profileData.id);
-       const { data: friendRequestData, error: friendRequestError } = await supabase
-         .from('friend_requests')
-         .select('id')
-         .eq('from_user_id', authUser.id)
-         .eq('to_user_id', profileData.id)
-         .single();
+       console.log('Profile.tsx: Checking follow status from', authUser.id, 'to', profileData.id);
+       const { count, error: followError } = await supabase
+         .from('follows')
+         .select('*', { count: 'exact' })
+         .eq('follower_id', authUser.id)
+         .eq('following_id', profileData.id);
 
-       if (friendRequestError && friendRequestError.code !== 'PGRST116') { // PGRST116 means no rows found
-         console.error('Profile.tsx: Error checking existing friend request:', friendRequestError);
+       if (followError) {
+         console.error('Profile.tsx: Error checking follow status:', followError);
+       } else {
+         isFollowing = count! > 0;
        }
-       console.log('Profile.tsx: Friend request data:', friendRequestData);
-       setExistingFriendRequest(!!friendRequestData);
-     } else {
-       setExistingFriendRequest(false);
      }
 
      setUserProfile({
        ...profileData,
        posts: postsData || [],
+       is_following: isFollowing,
      } as UserProfile);
      setLoading(false);
      console.log('Profile.tsx: setUserProfile completed.');
@@ -143,20 +142,16 @@ const Profile = () => {
 
    if (targetUsername) {
      fetchProfile(targetUsername);
-   } else if (isOwnProfile && authUser) {
+   } else if (authUser && authUser.user_metadata.username) {
        // If logged in but username not in URL, use auth user's username
        fetchProfile(authUser.user_metadata.username as string);
-   } else if (!isOwnProfile && !urlUsername) {
-       // Should not happen if protected route works
-       console.log('Profile.tsx: No username in URL and not own profile, setting userProfile to null.');
+   } else {
+       // If no username in URL and not authenticated, or no username in authUser
        setUserProfile(null);
        setLoading(false);
-   } else if (isOwnProfile && !authUser) {
-       console.log('Profile.tsx: Own profile, but not authenticated. Redirecting to /auth');
-       navigate('/auth'); // Must be logged in to view own profile
    }
 
- }, [urlUsername, authLoading, authUser, navigate, isOwnProfile]);
+ }, [urlUsername, authLoading, authUser, navigate]);
 
   if (loading || authLoading) {
     return (
@@ -173,7 +168,7 @@ const Profile = () => {
     return <NotFound />;
   }
 
-  const handleFriendRequest = async () => {
+  const handleFollowToggle = async () => {
     if (!authUser) {
       openAuthModal();
       return;
@@ -182,41 +177,60 @@ const Profile = () => {
     if (authUser.id === profile.id) {
       toast({
         title: 'Error',
-        description: "You cannot send a friend request to yourself.",
+        description: "You cannot follow yourself.",
         variant: "destructive",
       });
       return;
     }
 
-    setLoading(true); // Indicate loading while sending request
+    setLoading(true);
 
-    console.log('Profile.tsx: Attempting to send friend request from', authUser.id, 'to', profile.id);
-    const { error } = await supabase.from('friend_requests').insert({
-      from_user_id: authUser.id,
-      to_user_id: profile.id,
-    });
-    if (error) {
-      console.error('Profile.tsx: Error sending friend request:', error);
+    if (userProfile?.is_following) {
+      // Unfollow
+      const { error } = await supabase
+        .from('follows')
+        .delete()
+        .eq('follower_id', authUser.id)
+        .eq('following_id', profile.id);
+
+      if (error) {
+        console.error('Profile.tsx: Error unfollowing:', error);
+        toast({
+          title: 'Error',
+          description: `Failed to unfollow: ${error.message}`,
+          variant: "destructive",
+        });
+      } else {
+        setUserProfile(prev => prev ? { ...prev, is_following: false } : null);
+        toast({
+          title: 'Unfollowed!',
+          description: `You are no longer following ${profile.display_name}.`,
+        });
+      }
     } else {
-      console.log('Profile.tsx: Friend request sent successfully.');
-    }
+      // Follow
+      const { error } = await supabase
+        .from('follows')
+        .insert([
+          { follower_id: authUser.id, following_id: profile.id }
+        ]);
 
-    setLoading(false); // End loading
-
-    if (error) {
-      console.error('Error sending friend request:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to send friend request: ${error.message}`,
-        variant: "destructive",
-      });
-    } else {
-      setFriendRequested(true);
-      toast({
-        title: 'Friend request sent!',
-        description: `Request sent to ${profile.display_name}`,
-      });
+      if (error) {
+        console.error('Profile.tsx: Error following:', error);
+        toast({
+          title: 'Error',
+          description: `Failed to follow: ${error.message}`,
+          variant: "destructive",
+        });
+      } else {
+        setUserProfile(prev => prev ? { ...prev, is_following: true } : null);
+        toast({
+          title: 'Followed!',
+          description: `You are now following ${profile.display_name}.`,
+        });
+      }
     }
+    setLoading(false);
   };
 
   return (
@@ -274,13 +288,12 @@ const Profile = () => {
           {!isOwnProfile && (
             <div className="flex gap-2 mb-4">
               <Button
-                onClick={handleFriendRequest}
-                disabled={friendRequested || existingFriendRequest || loading}
-                variant={friendRequested || existingFriendRequest ? "outline" : "default"}
+                onClick={handleFollowToggle}
+                disabled={loading}
+                variant={userProfile?.is_following ? "outline" : "default"}
                 className="flex-1 rounded-full hover:scale-105 transition-apple"
               >
-                <UserPlus className="h-4 w-4 mr-2" />
-                {loading ? 'Sending...' : (friendRequested || existingFriendRequest ? 'Request Sent' : 'Add Friend')}
+                {loading ? '...' : (userProfile?.is_following ? <><Check className="h-4 w-4 mr-2" /> Following</> : <><UserPlus className="h-4 w-4 mr-2" /> Follow</>)}
               </Button>
               <Button
                 onClick={() => {
