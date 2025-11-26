@@ -47,16 +47,28 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
 
     const handleAuthStateChange = async (_event: string, session: Session | null) => {
       if (!isMounted.current) return;
-      setSession(session);
-      setUser(session?.user ?? null);
+      
+      try {
+        setSession(session);
+        setUser(session?.user ?? null);
 
-      if (session?.user) {
-        const { isAdmin } = await fetchUserProfile(session.user.id, isMounted);
-        setIsAdmin(isAdmin);
-      } else {
-        setIsAdmin(false);
+        if (session?.user) {
+          const { isAdmin } = await fetchUserProfile(session.user.id, isMounted);
+          if (isMounted.current) {
+             setIsAdmin(isAdmin);
+          }
+        } else {
+          if (isMounted.current) {
+             setIsAdmin(false);
+          }
+        }
+      } catch (e) {
+        // Error handled gracefully
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
 
     // Initial session check
