@@ -25,24 +25,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const isMounted = { current: true };
 
 const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<boolean>) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', userId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single();
 
-  if (!isMountedRef.current) return { isAdmin: false };
+    if (!isMountedRef.current) return { isAdmin: false };
 
-  if (error) {
-    logger.error('Error fetching admin status', error);
+    if (error) {
+      logger.error('Error fetching admin status', error);
+      return { isAdmin: false };
+    }
+    return { isAdmin: data?.is_admin ?? false };
+  } catch (err) {
+    logger.error('Exception in fetchUserProfile', err);
     return { isAdmin: false };
   }
-  return { isAdmin: data?.is_admin ?? false };
 };
 
     const handleAuthStateChange = async (_event: string, session: Session | null) => {
       if (!isMounted.current) return;
-      logger.info('Auth state changed', { event: _event, session });
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -52,7 +56,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
       } else {
         setIsAdmin(false);
       }
-      setLoading(false); // Ensure loading is set to false after auth state changes
+      setLoading(false);
     };
 
     // Initial session check
