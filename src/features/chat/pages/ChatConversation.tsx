@@ -1,66 +1,95 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Check, Send, Image as ImageIcon, X, CheckCheck } from 'lucide-react';
 import { ParsedText } from '@/lib/textParser';
 import { useChatContext } from '@/providers/ChatContext';
-import { useAuth } from '@/providers/SupabaseAuthContext';
 import { supabase } from '@/lib/supabase';
-import { logger } from '@/lib/logger';
+import { useAuth } from '@/providers/SupabaseAuthContext';
 
+interface Message {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  status: string;
+}
+
+interface OtherUser {
+  id: string;
+  username: string;
+  display_name: string;
+  verified: boolean;
+}
 
 const ChatConversation = () => {
   const { chatId } = useParams();
   const navigate = useNavigate();
-  const [messageContent, setMessageContent] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [otherUser, setOtherUser] = useState<OtherUser | null>(null);
   const [chatImage, setChatImage] = useState<string | null>(null);
-  const [chat, setChat] = useState<any | null>(null);
-  const { user: currentUser } = useAuth();
-  const { markChatAsRead, fetchChatDetails, fetchChatMessages, sendMessage, subscribeToChatMessages } = useChatContext();
+  const { markChatAsRead } = useChatContext();
+  const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(true);
-
-  const otherParticipant = chat?.chat_participants?.find(
-    (p: { user_id: string }) => p.user_id !== currentUser?.id
-  );
-
-  const loadChatData = useCallback(() => {
-    if (!chatId || !currentUser) return () => {};
-    setLoading(true);
-    const unsubscribeDetails = fetchChatDetails(chatId, (chatUpdate) => {
-      setChat(chatUpdate);
-    });
-
-    const unsubscribeMessages = fetchChatMessages(chatId, (messagesUpdate) => {
-      setMessages(messagesUpdate);
-      markChatAsRead(chatId);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeDetails();
-      unsubscribeMessages();
-    };
-  }, [chatId, currentUser, fetchChatDetails, fetchChatMessages, markChatAsRead]);
 
   useEffect(() => {
-    const cleanupLoadChatData = loadChatData();
+    if (chatId && user) {
+      markChatAsRead(chatId);
+      fetchChatData();
+      fetchMessages();
+    }
+  }, [chatId, user]);
 
-    const unsubscribe = subscribeToChatMessages(chatId!, (newMessage) => {
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-      markChatAsRead(chatId!);
-    });
+  useEffect(() => {
+    if (!chatId) return;
+    
+    const channel = supabase
+      .channel(`messages-${chatId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, () => {
+        fetchMessages();
+      })
+      .subscribe();
 
     return () => {
-      cleanupLoadChatData();
-      unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [chatId, currentUser, subscribeToChatMessages, loadChatData]);
+  }, [chatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const fetchChatData = async () => {
+    if (!chatId || !user) return;
+
+    const { data } = await supabase
+      .from('chat_participants')
+      .select('user_id, profiles!chat_participants_user_id_fkey(id, username, display_name, verified)')
+      .eq('chat_id', chatId)
+      .neq('user_id', user.id)
+      .single();
+
+    if (data?.profiles) {
+      setOtherUser(data.profiles as any);
+    }
+  };
+
+  const fetchMessages = async () => {
+    if (!chatId) return;
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      setMessages(data);
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,108 +97,94 @@ const ChatConversation = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setChatImage(reader.result as string);
-        logger.debug('Image loaded for preview');
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleSend = async () => {
-    if ((messageContent.trim() || chatImage) && chatId) {
-      logger.debug('Sending message', { chatId, hasContent: !!messageContent, hasImage: !!chatImage });
-      try {
-        await sendMessage(chatId, messageContent);
-        setMessageContent('');
-        setChatImage(null);
-      } catch (error) {
-        logger.error('Failed to send message', error);
-      }
+    if (!message.trim() || !chatId || !user) return;
+
+    const { error } = await supabase.from('messages').insert({
+      chat_id: chatId,
+      user_id: user.id,
+      content: message,
+      status: 'sent',
+    });
+
+    if (!error) {
+      setMessage('');
+      setChatImage(null);
+      fetchMessages();
     }
   };
 
+  if (!otherUser) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-strong border-b">
         <div className="flex items-center gap-3 p-4">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => navigate('/chats')}
-            className="p-2 rounded-full transition-colors text-muted-foreground hover:bg-background/80"
+            className="rounded-full"
           >
             <ArrowLeft className="h-5 w-5" />
-          </button>
+          </Button>
           
           <div className="flex items-center gap-2 flex-1">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold flex items-center justify-center">
-                {chat.user.displayName[0]?.toUpperCase()}
-              </div>
-              {(chat.user.username === 'alex' || chat.user.username === 'mike') && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-              )}
-            </div>
+            <Avatar className="w-10 h-10">
+              <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
+                {otherUser.display_name[0]?.toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold">{chat.user.displayName}</span>
-                {chat.user.verified && (
+                <span className="font-semibold">{otherUser.display_name}</span>
+                {otherUser.verified && (
                   <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
                     <Check className="h-3 w-3 text-white stroke-[3]" />
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>@{chat.user.username}</span>
-                <span>•</span>
-                {(chat.user.username === 'alex' || chat.user.username === 'mike') ? (
-                  <span className="text-green-500 font-medium">Online</span>
-                ) : (
-                  <span>Last seen 2h ago</span>
-                )}
+                <span>@{otherUser.username}</span>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Messages */}
       <main className="flex-1 pt-20 pb-32 px-4 max-w-2xl mx-auto w-full">
         <div className="space-y-4">
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${msg.user_id === user?.id ? 'justify-end' : 'justify-start'}`}
             >
               <div
                 className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                  msg.sender_id === currentUser?.id
+                  msg.user_id === user?.id
                     ? 'bg-primary text-primary-foreground'
                     : 'glass-strong'
                 }`}
               >
-                {msg.content && (
-                  <p className="text-sm">
-                    <ParsedText text={msg.content} />
-                  </p>
-                )}
-                {/* Image handling to be implemented separately */}
-                {/* {msg.image && (
-                  <img
-                    src={msg.image}
-                    alt="Chat image"
-                    className="rounded-xl max-w-full mt-2"
-                  />
-                )} */}
+                <p className="text-sm">
+                  <ParsedText text={msg.content} />
+                </p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <p className="text-xs opacity-70">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  {msg.sender_id === currentUser?.id && (
-                    <span className={`${msg.is_read ? 'text-green-400' : 'text-primary-foreground'}`}>
-                      {msg.is_read ? (
-                        <CheckCheck className="h-3 w-3" />
-                      ) : (
-                        <Check className="h-3 w-3" />
-                      )}
+                  {msg.user_id === user?.id && msg.status && (
+                    <span>
+                      {msg.status === 'sent' && <Check className="h-3 w-3" />}
+                      {msg.status === 'delivered' && <CheckCheck className="h-3 w-3" />}
+                      {msg.status === 'seen' && <CheckCheck className="h-3 w-3 text-green-400" />}
                     </span>
                   )}
                 </div>
@@ -180,7 +195,6 @@ const ChatConversation = () => {
         </div>
       </main>
 
-      {/* Input */}
       <footer className="fixed bottom-0 left-0 right-0 z-50 pb-safe">
         <div className="glass-strong border-t mx-4 mb-4 rounded-3xl p-4">
           {chatImage && (
@@ -202,22 +216,24 @@ const ChatConversation = () => {
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <button
+              <Button
                 type="button"
-                className="rounded-full h-11 w-11 border border-border/50 bg-background/50 hover:bg-background/80 transition-apple flex items-center justify-center"
+                variant="outline"
+                size="icon"
+                className="rounded-full h-11 w-11"
                 onClick={(e) => {
                   e.preventDefault();
                   (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
                 }}
               >
                 <ImageIcon className="h-5 w-5" />
-              </button>
+              </Button>
             </label>
-            <textarea
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl p-2 bg-transparent focus:outline-none border border-border/50"
+              className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -225,13 +241,14 @@ const ChatConversation = () => {
                 }
               }}
             />
-            <button
+            <Button
               onClick={handleSend}
-              className="rounded-full h-11 w-11 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              disabled={!messageContent.trim() && !chatImage}
+              size="icon"
+              className="rounded-full h-11 w-11 shrink-0"
+              disabled={!message.trim()}
             >
               <Send className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
         </div>
       </footer>

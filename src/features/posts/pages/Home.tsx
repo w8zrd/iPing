@@ -3,7 +3,6 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
 import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye, MoreVertical } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
@@ -52,7 +51,7 @@ const Home = () => {
   const [focusedCommentPing, setFocusedCommentPing] = useState<string | null>(null);
   const [pingInputFocused, setPingInputFocused] = useState(false);
   const [pingImage, setPingImage] = useState<string | null>(null);
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed as part of component cleanup
   const { user } = useAuth();
 
   const handleDeletePing = async (pingId: string) => {
@@ -64,10 +63,7 @@ const Home = () => {
       logger.error('Error deleting ping', error, { userMessage: 'Failed to delete ping. Please try again.', showToast: true });
     } else {
       setPosts((prevPosts) => prevPosts.filter((ping) => ping.id !== pingId));
-      toast({
-        title: 'Ping deleted!',
-        description: 'Your ping has been removed.',
-      });
+      // toast removed: Ping deleted!
     }
   };
 
@@ -203,10 +199,7 @@ const Home = () => {
         logger.info('Home.tsx: Ping created successfully.');
         setNewPing('');
         setPingImage(null);
-        toast({
-          title: 'Pinged!',
-          description: 'Your ping is now live',
-        });
+        // toast removed: Pinged!
         fetchPings();
       }
     } catch (error) {
@@ -263,17 +256,10 @@ const Home = () => {
     }
  
     if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add comment',
-        variant: 'destructive',
-      });
+      // toast removed: Failed to add comment
     } else {
       setCommentText({ ...commentText, [pingId]: '' });
-      toast({
-        title: 'Comment added!',
-        description: 'Your comment is now visible',
-      });
+      // toast removed: Comment added!
       fetchPings();
     }
   };
@@ -298,10 +284,7 @@ const Home = () => {
  
     if (!error) {
       setFriendRequests([...friendRequests, targetUserId]);
-      toast({
-        title: 'Friend request sent!',
-        description: `Request sent to ${displayName}`,
-      });
+      // toast removed: Friend request sent!
     }
   };
 
@@ -325,19 +308,13 @@ const Home = () => {
           logger.error('Home.tsx: Error sharing ping', err as Error, { userMessage: 'Failed to share ping.', showToast: true });
           // Fallback to clipboard
           navigator.clipboard.writeText(shareUrl);
-          toast({
-            title: 'Link copied!',
-            description: 'Ping link copied to clipboard',
-          });
+          // toast removed: Link copied!
         }
       }
     } else {
       // Fallback to clipboard
       navigator.clipboard.writeText(shareUrl);
-      toast({
-        title: 'Link copied!',
-        description: 'Ping link copied to clipboard',
-      });
+      // toast removed: Link copied!
     }
   };
 

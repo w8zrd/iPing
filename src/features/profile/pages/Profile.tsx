@@ -2,225 +2,182 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
-import { ArrowLeft, UserPlus, Check, Settings, Calendar, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ArrowLeft, UserPlus, Check, Settings, Calendar, MapPin, MessageCircle, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import NotFound from '@/pages/error/NotFound';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import { logger } from '@/lib/logger';
+import { followUser, unfollowUser, isFollowing } from '@/api/user';
 
-// Supabase Data Types
-type SupabasePost = {
-  id: string;
-  content: string;
-  created_at: string;
-};
-
-interface ProfileData {
+interface UserProfile {
   id: string;
   username: string;
   display_name: string;
-  bio: string | null;
+  bio?: string;
   verified: boolean;
-  location: string | null;
+  location?: string;
+  avatar_url?: string;
   created_at: string;
 }
 
-interface UserProfile extends ProfileData {
-  posts: SupabasePost[];
-  is_following: boolean; // Indicates if the current user is following this profile
+interface Post {
+  id: string;
+  content: string;
+  created_at: string;
+  image_url?: string;
 }
-
-// Define a default profile for loading states or errors
-const DEFAULT_PROFILE: UserProfile = {
-  id: '0',
-  username: 'error',
-  display_name: 'Error Loading User',
-  bio: 'Profile data could not be fetched.',
-  verified: false,
-  location: null,
-  created_at: new Date().toISOString(),
-  posts: [],
-  is_following: false,
-};
 
 const Profile = () => {
   const { username: urlUsername } = useParams();
   const navigate = useNavigate();
-  const { user: authUser, loading: authLoading } = useAuth();
-
-  logger.debug('Profile component mounted', { urlUsername });
-
-
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowingUser, setIsFollowingUser] = useState(false);
   const { toast } = useToast();
 
-  const isOwnProfile = authUser?.user_metadata.username === urlUsername;
-
   useEffect(() => {
-    logger.debug('Profile useEffect triggered.');
-    if (authLoading) return;
-    
-    const targetUsername = urlUsername || (authUser?.user_metadata?.username as string);
-    logger.debug('Profile.tsx: targetUsername derived', { targetUsername });
+    window.scrollTo(0, 0);
+    if (urlUsername) {
+      fetchProfile(urlUsername);
+    } else if (user) {
+      fetchOwnProfile();
+    }
+  }, [urlUsername, user]);
+  
+  useEffect(() => {
+    if (user && profile && user.id !== profile.id) {
+      fetchIsFollowing(profile.id);
+    }
+  }, [profile, user]);
 
-   const fetchProfile = async (targetUser: string) => {
-     setLoading(true);
-     logger.debug('Profile.tsx: Attempting to fetch profile', { targetUser });
-     
-     // 1. Fetch Profile Data
-     logger.debug('Profile.tsx: Fetching profile data', { targetUser });
-     const { data: profileData, error: profileError } = await supabase
-       .from('profiles')
-       .select(`id, username, display_name, bio, verified, location, created_at`)
-       .eq('username', targetUser)
-       .single();
-       
-     if (profileError) {
-       logger.error('Profile.tsx: Error fetching profile', profileError, { userMessage: 'Failed to load profile.' });
-       setUserProfile(null);
-       setLoading(false);
-       return;
-     }
-     if (!profileData) {
-       logger.warn('Profile.tsx: No profile data found', { targetUser }, { userMessage: 'Profile not found.' });
-       setUserProfile(null);
-       setLoading(false);
-       return;
-     }
-     logger.debug('Profile.tsx: Successfully fetched profileData', { profileData });
-     
-     // 2. Fetch User Pings
-     logger.debug('Profile.tsx: Fetching posts for user ID', { userId: profileData.id });
-     const { data: postsData, error: postsError } = await supabase
-       .from('pings')
-       .select(`id, content, created_at`)
-       .eq('user_id', profileData.id)
-       .order('created_at', { ascending: false });
+  const fetchProfile = async (username: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username)
+      .single();
 
-     if (postsError) {
-        logger.error('Profile.tsx: Error fetching posts', postsError, { userMessage: 'Failed to load posts.' });
-        // Continue with profile data but empty posts
-     }
-     logger.debug('Profile.tsx: Posts fetched', { postsData });
+    if (!error && data) {
+      setProfile(data);
+      fetchUserPosts(data.id);
+      fetchFollowCounts(data.id);
+    }
+  };
 
-     // 3. Check if authUser is following this profile
-     let isFollowing = false;
-     if (authUser && authUser.id !== profileData.id) {
-       logger.debug('Profile.tsx: Checking follow status', { followerId: authUser.id, followingId: profileData.id });
-       const { count, error: followError } = await supabase
-         .from('follows')
-         .select('*', { count: 'exact' })
-         .eq('follower_id', authUser.id)
-         .eq('following_id', profileData.id);
+  const fetchOwnProfile = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
-       if (followError) {
-         logger.error('Profile.tsx: Error checking follow status', followError);
-       } else {
-         isFollowing = count! > 0;
-       }
-     }
+    if (!error && data) {
+      setProfile(data);
+      fetchUserPosts(data.id);
+      fetchFollowCounts(data.id);
+    }
+  };
 
-     setUserProfile({
-       ...profileData,
-       posts: postsData || [],
-       is_following: isFollowing,
-     } as UserProfile);
-     setLoading(false);
-     logger.debug('Profile.tsx: setUserProfile completed.');
-   };
+  const fetchUserPosts = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-   if (targetUsername) {
-     fetchProfile(targetUsername);
-   } else if (authUser && authUser.user_metadata.username) {
-       // If logged in but username not in URL, use auth user's username
-       fetchProfile(authUser.user_metadata.username as string);
-   } else {
-       // If no username in URL and not authenticated, or no username in authUser
-       setUserProfile(null);
-       setLoading(false);
-   }
+    if (!error && data) {
+      setPosts(data);
+    }
+  };
 
- }, [urlUsername, authLoading, authUser, navigate]);
+  const fetchFollowCounts = async (userId: string) => {
+    const { count: followers } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('followed_id', userId);
 
-  if (loading || authLoading) {
+    const { count: following } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', userId);
+
+    setFollowersCount(followers || 0);
+    setFollowingCount(following || 0);
+  };
+  
+  const fetchIsFollowing = async (targetUserId: string) => {
+    try {
+      const isCurrentlyFollowing = await isFollowing(targetUserId);
+      setIsFollowingUser(isCurrentlyFollowing);
+    } catch (error) {
+      console.error('Error fetching following status:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not fetch following status.',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleFollowToggle = async () => {
+    if (!user || !profile) return;
+
+    try {
+      if (isFollowingUser) {
+        await unfollowUser(profile.id);
+        setIsFollowingUser(false);
+        setFollowersCount(c => c - 1);
+        toast({
+          title: 'Unfollowed!',
+          description: `You are no longer following ${profile.display_name}`,
+        });
+      } else {
+        await followUser(profile.id);
+        setIsFollowingUser(true);
+        setFollowersCount(c => c + 1);
+        toast({
+          title: 'Followed!',
+          description: `You are now following ${profile.display_name}`,
+          variant: 'success',
+        });
+      }
+    } catch (error) {
+      console.error('Follow/Unfollow error:', error);
+      toast({
+        title: 'Error',
+        description: `Could not ${isFollowingUser ? 'unfollow' : 'follow'} ${profile.display_name}.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleMessage = async () => {
+    if (!user || !profile) return;
+    const { data, error } = await supabase.rpc('create_direct_chat', { other_user: profile.id });
+    if (!error && data) {
+      navigate(`/chats/${data}`);
+    }
+  };
+
+  const isOwnProfile = user?.id === profile?.id;
+
+  if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-screen pb-32">
+        <Header />
+        <div className="max-w-2xl mx-auto p-4 pt-24">
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+        <Navigation />
       </div>
     );
   }
-
-  const profile = userProfile || DEFAULT_PROFILE;
-  
-  // If we couldn't load a profile, and we are done loading, show not found.
-  if (!userProfile && !loading && !authLoading) {
-    return <NotFound />;
-  }
-
-  const handleFollowToggle = async () => {
-    if (!authUser) {
-      navigate('/auth'); // Redirect to auth page if not authenticated
-      return;
-    }
-
-    if (authUser.id === profile.id) {
-      toast({
-        title: 'Error',
-        description: "You cannot follow yourself.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    if (userProfile?.is_following) {
-      // Unfollow
-      const { error } = await supabase
-        .from('follows')
-        .delete()
-        .eq('follower_id', authUser.id)
-        .eq('following_id', profile.id);
-
-      if (error) {
-        logger.error('Profile.tsx: Error unfollowing', error, {
-          userMessage: `Failed to unfollow: ${error.message}`,
-          showToast: true,
-        });
-      } else {
-        setUserProfile(prev => prev ? { ...prev, is_following: false } : null);
-        toast({
-          title: 'Unfollowed!',
-          description: `You are no longer following ${profile.display_name}.`,
-        });
-      }
-    } else {
-      // Follow
-      const { error } = await supabase
-        .from('follows')
-        .insert([
-          { follower_id: authUser.id, following_id: profile.id }
-        ]);
-
-      if (error) {
-        logger.error('Profile.tsx: Error following', error, {
-          userMessage: `Failed to follow: ${error.message}`,
-          showToast: true,
-        });
-      } else {
-        setUserProfile(prev => prev ? { ...prev, is_following: true } : null);
-        toast({
-          title: 'Followed!',
-          description: `You are now following ${profile.display_name}.`,
-        });
-      }
-    }
-    setLoading(false);
-  };
 
   return (
     <div className="min-h-screen pb-32">
@@ -229,12 +186,14 @@ const Profile = () => {
         <div className="mb-8 pt-24 animate-fade-in flex items-center justify-between">
           <div className="flex items-center gap-4">
             {!isOwnProfile && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => navigate(-1)}
-                className="p-2 rounded-full transition-colors text-muted-foreground hover:bg-background/80"
+                className="rounded-full"
               >
                 <ArrowLeft className="h-5 w-5" />
-              </button>
+              </Button>
             )}
             <h1 className="text-3xl font-bold">Profile</h1>
           </div>
@@ -250,12 +209,11 @@ const Profile = () => {
 
         <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
           <div className="flex items-start gap-4 mb-4">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white text-2xl font-bold flex items-center justify-center ring-4 ring-primary/20 shadow-lg">
+            <Avatar className="w-20 h-20 ring-4 ring-primary/20 shadow-lg">
+              <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white text-2xl font-bold">
                 {profile.display_name[0]?.toUpperCase() || 'U'}
-              </div>
-              {/* Removed userProfile.followsBack and isActive checks as they require more complex Supabase queries */}
-            </div>
+              </AvatarFallback>
+            </Avatar>
             
             <div className="flex-1">
               <div className="flex items-center gap-1.5 mb-1">
@@ -272,76 +230,99 @@ const Profile = () => {
 
           {!isOwnProfile && (
             <div className="flex gap-2 mb-4">
-              <button
+              <Button
                 onClick={handleFollowToggle}
-                disabled={loading}
-                className={`flex-1 rounded-full hover:scale-105 transition-apple h-10 px-4 py-2 text-sm font-medium ${userProfile?.is_following ? 'border border-border/50 bg-background/50 hover:bg-background/80' : 'bg-primary text-primary-foreground hover:bg-primary/90'} disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center`}
+                variant={isFollowingUser ? "outline" : "default"}
+                className="flex-1 rounded-full hover:scale-105 transition-apple"
               >
-                {loading ? '...' : (userProfile?.is_following ? <><Check className="h-4 w-4 mr-2" /> Following</> : <><UserPlus className="h-4 w-4 mr-2" /> Follow</>)}
-              </button>
-              <button
-                onClick={() => {
-                  if (!authUser) {
-                    navigate('/auth'); // Redirect to auth page if not authenticated
-                  } else {
-                    navigate(`/chats/${profile.username}`);
-                  }
-                }}
-                className="flex-1 rounded-full hover:scale-105 transition-apple h-10 px-4 py-2 text-sm font-medium border border-border/50 bg-background/50 hover:bg-background/80"
+                {isFollowingUser ? (
+                  <>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Following
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Follow
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleMessage}
+                variant="outline"
+                className="flex-1 rounded-full hover:scale-105 transition-apple"
               >
+                <MessageCircle className="h-4 w-4 mr-2" />
                 Message
-              </button>
+              </Button>
             </div>
           )}
 
-          <p className="text-sm text-foreground/90 mb-4">
-            <ParsedText text={profile.bio || 'No bio provided.'} />
-          </p>
+          {profile.bio && (
+            <p className="text-sm text-foreground/90 mb-4">
+              <ParsedText text={profile.bio} />
+            </p>
+          )}
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
-              <span>Joined {new Date(profile.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
+              <span>Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4" />
-              <span>{profile.location || 'Unknown'}</span>
-            </div>
+            {profile.location && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                <span>{profile.location}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-6 text-sm">
             <div>
-              <span className="font-bold text-foreground">{profile.posts.length}</span>
-              <span className="text-muted-foreground ml-1">Posts</span>
+              <span className="font-bold text-foreground">{posts.length}</span>
+              <span className="text-muted-foreground ml-1">Pings</span>
             </div>
             <div>
-              <span className="font-bold text-foreground">0</span>
+              <span className="font-bold text-foreground">{followingCount}</span>
               <span className="text-muted-foreground ml-1">Following</span>
             </div>
             <div>
-              <span className="font-bold text-foreground">0</span>
+              <span className="font-bold text-foreground">{followersCount}</span>
               <span className="text-muted-foreground ml-1">Followers</span>
             </div>
           </div>
         </div>
 
         <div className="mb-4">
-          <h3 className="text-xl font-semibold mb-4">{isOwnProfile ? 'Your Posts' : `${profile.display_name}'s Posts`}</h3>
+          <h3 className="text-xl font-semibold mb-4">{isOwnProfile ? 'Your Pings' : `${profile.display_name}'s Pings`}</h3>
           <div className="space-y-4">
-            {profile.posts.map((post, index) => (
-              <div
-                key={post.id}
-                className="glass rounded-3xl p-6 shadow-md animate-fade-in"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <p className="text-foreground/90 mb-2">
-                  <ParsedText text={post.content} />
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(post.created_at).toLocaleString()}
-                </p>
+            {posts.length === 0 ? (
+              <div className="glass rounded-3xl p-8 text-center">
+                <p className="text-muted-foreground">No pings yet</p>
               </div>
-            ))}
+            ) : (
+              posts.map((post, index) => (
+                <div
+                  key={post.id}
+                  className="glass rounded-3xl p-6 shadow-md animate-fade-in"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <p className="text-foreground/90 mb-2">
+                    <ParsedText text={post.content} />
+                  </p>
+                  {post.image_url && (
+                    <img 
+                      src={post.image_url} 
+                      alt="Post" 
+                      className="rounded-2xl w-full mb-2 max-h-96 object-cover"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(post.created_at).toLocaleString()}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

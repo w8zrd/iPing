@@ -1,49 +1,85 @@
+import { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useChatContext } from '@/providers/ChatContext';
-import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/providers/SupabaseAuthContext';
 
 interface Chat {
   id: string;
-  user: {
+  other_user: {
+    id: string;
     username: string;
-    displayName: string;
+    display_name: string;
     verified: boolean;
   };
-  lastMessage: string;
-  timestamp: Date;
-  unread: boolean;
+  last_message?: {
+    content: string;
+    created_at: string;
+  };
 }
-
-const mockChats: Chat[] = [
-  {
-    id: '1',
-    user: { username: 'alex', displayName: 'Alex Chen', verified: true },
-    lastMessage: 'Thanks for the ping! Really appreciate it 🙏',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    unread: true,
-  },
-  {
-    id: '2',
-    user: { username: 'sarah', displayName: 'Sarah Johnson', verified: false },
-    lastMessage: 'Hey! How are you doing?',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    unread: false,
-  },
-  {
-    id: '3',
-    user: { username: 'mike', displayName: 'Mike Davis', verified: true },
-    lastMessage: 'Did you see the new features?',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    unread: false,
-  },
-];
 
 const Chats = () => {
   const navigate = useNavigate();
-  const { chats } = useChatContext();
+  const {  } = useChatContext();
+  const { user } = useAuth();
+  const [chats, setChats] = useState<Chat[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      fetchChats();
+    }
+  }, [user]);
+
+  const fetchChats = async () => {
+    if (!user) return;
+
+    const { data: participantsData, error } = await supabase
+      .from('chat_participants')
+      .select(`
+        chat_id,
+        chats!inner(id)
+      `)
+      .eq('user_id', user.id);
+
+    if (error || !participantsData) return;
+
+    const chatIds = participantsData.map(p => p.chat_id);
+    
+    const chatsWithDetails = await Promise.all(
+      chatIds.map(async (chatId) => {
+        // Get other participant
+        const { data: otherParticipant } = await supabase
+          .from('chat_participants')
+          .select('user_id, profiles!chat_participants_user_id_fkey(id, username, display_name, verified)')
+          .eq('chat_id', chatId)
+          .neq('user_id', user.id)
+          .single();
+
+        // Get last message
+        const { data: lastMessage } = await supabase
+          .from('messages')
+          .select('content, created_at')
+          .eq('chat_id', chatId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!otherParticipant?.profiles) return null;
+
+        return {
+          id: chatId,
+          other_user: otherParticipant.profiles as any,
+          last_message: lastMessage || undefined,
+        };
+      })
+    );
+
+    setChats(chatsWithDetails.filter(Boolean) as Chat[]);
+  };
 
   return (
     <div className="min-h-screen pb-32">
@@ -54,54 +90,54 @@ const Chats = () => {
         </div>
 
         <div className="glass-strong rounded-3xl shadow-md overflow-hidden">
-          {mockChats.map((chat, index) => (
-            <button
-              key={chat.id}
-              onClick={() => {
-                logger.debug('Navigating to chat', { chatId: chat.id });
-                navigate(`/chats/${chat.id}`);
-              }}
-              className={`w-full p-4 animate-fade-in hover:bg-primary/5 transition-apple text-left ${
-                chat.unread ? 'bg-primary/5' : ''
-              } ${index !== mockChats.length - 1 ? 'border-b border-border/30' : ''}`}
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              <div className="flex items-start gap-3">
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold flex items-center justify-center">
-                    {chat.user.displayName[0]?.toUpperCase()}
-                  </div>
-                  {(chat.user.username === 'alex' || chat.user.username === 'mike') && (
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
-                  )}
-                </div>
+          {chats.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              No messages yet. Start a conversation from someone's profile!
+            </div>
+          ) : (
+            chats.map((chat, index) => (
+              <button
+                key={chat.id}
+                onClick={() => navigate(`/chats/${chat.id}`)}
+                className={`w-full p-4 animate-fade-in hover:bg-primary/5 transition-apple text-left ${
+                  index !== chats.length - 1 ? 'border-b border-border/30' : ''
+                }`}
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar className="w-12 h-12">
+                    <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
+                      {chat.other_user.display_name?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold">{chat.user.displayName}</span>
-                      {chat.user.verified && (
-                        <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
-                          <Check className="h-3 w-3 text-white stroke-[3]" />
-                        </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold">{chat.other_user.display_name}</span>
+                        {chat.other_user.verified && (
+                          <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
+                            <Check className="h-3 w-3 text-white stroke-" />
+                          </div>
+                        )}
+                      </div>
+                      {chat.last_message && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(chat.last_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {chat.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <p className="text-sm text-muted-foreground">@{chat.other_user.username}</p>
+                    {chat.last_message && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {chat.last_message.content}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">@{chat.user.username}</p>
-                  <p className={`text-sm truncate ${chat.unread ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                    {chat.lastMessage}
-                  </p>
                 </div>
-
-                {chat.unread && (
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                )}
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
 

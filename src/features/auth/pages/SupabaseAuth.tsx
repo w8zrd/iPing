@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/providers/SupabaseAuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { logger } from '@/lib/logger';
 
 const SupabaseAuth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -43,9 +44,10 @@ const SupabaseAuth = () => {
       }
 
       if (result.error) {
-        logger.error('Authentication failed', result.error, {
-          userMessage: result.error.message || 'Authentication failed',
-          showToast: true,
+        toast({
+          title: 'Error',
+          description: result.error.message || 'Authentication failed',
+          variant: 'destructive',
         });
       } else if (!isLogin) {
         toast({
@@ -53,10 +55,11 @@ const SupabaseAuth = () => {
           description: 'Account created! Please check your email to verify your account.',
         });
       }
-    } catch (error) {
-      logger.error('Authentication failed due to unexpected error', error as Error, {
-        userMessage: (error as Error).message || 'Authentication failed',
-        showToast: true,
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Authentication failed',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -77,42 +80,42 @@ const SupabaseAuth = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <input
+                <Input
                   type="text"
                   placeholder="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
+                  className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
                 />
               </div>
             )}
             <div className="space-y-2">
-              <input
+              <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
               />
             </div>
             <div className="space-y-2">
-              <input
+              <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-apple disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-apple"
             >
               {loading ? (
                 <>
@@ -124,7 +127,7 @@ const SupabaseAuth = () => {
               ) : (
                 'Sign Up'
               )}
-            </button>
+            </Button>
           </form>
 
           <button
