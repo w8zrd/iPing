@@ -3,20 +3,24 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from 'react';
 import { ChatProvider } from "./providers/ChatContext";
 import { NotificationProvider } from "./providers/NotificationContext";
 import { useAuth } from "./providers/SupabaseAuthContext";
-import Home from "./features/posts/pages/Home";
-import Profile from "./features/profile/pages/Profile";
-import SearchResults from "./features/search/pages/SearchResults";
-import Settings from "./features/settings/pages/Settings";
-import Notifications from "./features/notifications/pages/Notifications";
-import Chats from "./features/chat/pages/Chats";
-import ChatConversation from "./features/chat/pages/ChatConversation";
-import SupabaseAuth from "./features/auth/pages/SupabaseAuth";
-import NotFound from "./pages/error/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
-import PostDetail from "./features/posts/pages/PostDetail"; // Import PostDetail
+
+// Lazy load components
+const Home = lazy(() => import("./features/posts/pages/Home"));
+const Profile = lazy(() => import("./features/profile/pages/Profile"));
+const SearchResults = lazy(() => import("./features/search/pages/SearchResults"));
+const Settings = lazy(() => import("./features/settings/pages/Settings"));
+const Notifications = lazy(() => import("./features/notifications/pages/Notifications"));
+const Chats = lazy(() => import("./features/chat/pages/Chats"));
+const ChatConversation = lazy(() => import("./features/chat/pages/ChatConversation"));
+const SupabaseAuth = lazy(() => import("./features/auth/pages/SupabaseAuth"));
+const NotFound = lazy(() => import("./pages/error/NotFound"));
+const PostDetail = lazy(() => import("./features/posts/pages/PostDetail"));
+const Admin = lazy(() => import("./pages/Admin"));
 
 const queryClient = new QueryClient();
 
@@ -65,19 +69,22 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Routes>
-                <Route path="/auth" element={<SupabaseAuth />} />
-                <Route path="/" element={<AuthRequiredWrapper><Home /></AuthRequiredWrapper>} />
-                <Route path="/:username" element={<AuthRequiredWrapper><Profile /></AuthRequiredWrapper>} />
-                <Route path="/profile" element={<AuthRequiredWrapper><Profile /></AuthRequiredWrapper>} />
-                <Route path="/post/:id" element={<AuthRequiredWrapper><PostDetail /></AuthRequiredWrapper>} /> {/* New route for PostDetail */}
-                <Route path="/search" element={<AuthRequiredWrapper><SearchResults /></AuthRequiredWrapper>} />
-                <Route path="/notifications" element={<AuthRequiredWrapper><Notifications /></AuthRequiredWrapper>} />
-                <Route path="/chats" element={<AuthRequiredWrapper><Chats /></AuthRequiredWrapper>} />
-                <Route path="/chats/:chatId" element={<AuthRequiredWrapper><ChatConversation /></AuthRequiredWrapper>} />
-                <Route path="/settings" element={<AuthRequiredWrapper><Settings /></AuthRequiredWrapper>} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
+                <Routes>
+                  <Route path="/auth" element={<SupabaseAuth />} />
+                  <Route path="/" element={<AuthRequiredWrapper><Home /></AuthRequiredWrapper>} />
+                  <Route path="/:username" element={<AuthRequiredWrapper><Profile /></AuthRequiredWrapper>} />
+                  <Route path="/profile" element={<AuthRequiredWrapper><Profile /></AuthRequiredWrapper>} />
+                  <Route path="/post/:id" element={<AuthRequiredWrapper><PostDetail /></AuthRequiredWrapper>} />
+                  <Route path="/search" element={<AuthRequiredWrapper><SearchResults /></AuthRequiredWrapper>} />
+                  <Route path="/notifications" element={<AuthRequiredWrapper><Notifications /></AuthRequiredWrapper>} />
+                  <Route path="/chats" element={<AuthRequiredWrapper><Chats /></AuthRequiredWrapper>} />
+                  <Route path="/chats/:chatId" element={<AuthRequiredWrapper><ChatConversation /></AuthRequiredWrapper>} />
+                  <Route path="/settings" element={<AuthRequiredWrapper><Settings /></AuthRequiredWrapper>} />
+                  <Route path="/admin" element={<AuthRequiredWrapper><Admin /></AuthRequiredWrapper>} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </NotificationProvider>

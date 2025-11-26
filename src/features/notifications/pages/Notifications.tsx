@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Notification, useNotificationContext } from '@/providers/NotificationContext';
+import { logger } from '@/lib/logger';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ const Notifications = () => {
   };
 
   const handleNotificationClick = (notification: Notification) => {
+    logger.debug('Notification clicked', { notificationId: notification.id, type: notification.type });
     markNotificationAsRead(notification.id);
     
     if (notification.type === 'like' && notification.pings?.id) {

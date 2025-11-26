@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, MutableRefObject } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -33,7 +34,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
   if (!isMountedRef.current) return { isAdmin: false };
 
   if (error) {
-    console.error('Error fetching admin status:', error.message);
+    logger.error('Error fetching admin status', error);
     return { isAdmin: false };
   }
   return { isAdmin: data?.is_admin ?? false };
@@ -41,7 +42,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
 
     const handleAuthStateChange = async (_event: string, session: Session | null) => {
       if (!isMounted.current) return;
-      console.log('Auth state changed:', _event, session);
+      logger.info('Auth state changed', { event: _event, session });
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -57,7 +58,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
     // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted.current) return;
-      console.log('Initial session check:', session);
+      logger.info('Initial session check', { session });
       if (session) {
         await handleAuthStateChange('INITIAL_SESSION', session);
       } else {
@@ -67,7 +68,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
         setLoading(false); // Ensure loading is false if no session
       }
     }).catch((error) => {
-      console.error('Error fetching initial session:', error);
+      logger.error('Error fetching initial session', error);
       if (isMounted.current) {
         setUser(null);
         setSession(null);
@@ -87,15 +88,15 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    console.log('Attempting sign in for:', email);
+    logger.info('Attempting sign in', { email });
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) {
-      console.error('Sign in error:', error.message);
+      logger.error('Sign in error', error, { userMessage: error.message, showToast: true });
     } else {
-      console.log('User signed in successfully.');
+      logger.info('User signed in successfully.');
     }
     return { error };
   };
@@ -103,7 +104,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
   const signUp = async (email: string, password: string, username: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    console.log('Attempting sign up for:', email, 'with username:', username);
+    logger.info('Attempting sign up', { email, username });
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -116,20 +117,20 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
       }
     });
     if (error) {
-      console.error('Sign up error:', error.message);
+      logger.error('Sign up error', error, { userMessage: error.message, showToast: true });
     } else {
-      console.log('User signed up successfully. Check email for verification.');
+      logger.info('User signed up successfully. Check email for verification.');
     }
     return { error };
   };
 
   const signOut = async () => {
-    console.log('Attempting sign out.');
+    logger.info('Attempting sign out.');
     const { error } = await supabase.auth.signOut();
     if (error) {
-      console.error('Sign out error:', error.message);
+      logger.error('Sign out error', error, { userMessage: error.message, showToast: true });
     } else {
-      console.log('User signed out successfully.');
+      logger.info('User signed out successfully.');
     }
   };
 

@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useChatContext } from '@/providers/ChatContext';
+import { logger } from '@/lib/logger';
 
 interface Chat {
   id: string;
@@ -57,7 +58,10 @@ const Chats = () => {
           {mockChats.map((chat, index) => (
             <button
               key={chat.id}
-              onClick={() => navigate(`/chats/${chat.id}`)}
+              onClick={() => {
+                logger.debug('Navigating to chat', { chatId: chat.id });
+                navigate(`/chats/${chat.id}`);
+              }}
               className={`w-full p-4 animate-fade-in hover:bg-primary/5 transition-apple text-left ${
                 chat.unread ? 'bg-primary/5' : ''
               } ${index !== mockChats.length - 1 ? 'border-b border-border/30' : ''}`}

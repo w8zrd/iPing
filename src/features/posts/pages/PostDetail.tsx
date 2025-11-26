@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 interface Post {
   id: number;
@@ -50,8 +51,8 @@ const PostDetail: React.FC = () => {
         .single();
 
       if (postError) {
-        console.error('Error fetching post:', postError);
-        setError('Failed to fetch post.');
+        logger.error('Error fetching post', postError, { userMessage: 'Failed to fetch post.' });
+        setError('Failed to fetch post.'); // Keep for UI display
         setLoading(false);
         return;
       }
@@ -70,8 +71,8 @@ const PostDetail: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (commentsError) {
-        console.error('Error fetching comments:', commentsError);
-        setError('Failed to fetch comments.');
+        logger.error('Error fetching comments', commentsError, { userMessage: 'Failed to fetch comments.' });
+        setError('Failed to fetch comments.'); // Keep for UI display
         setLoading(false);
         return;
       }
@@ -119,10 +120,10 @@ const PostDetail: React.FC = () => {
       ]);
 
     if (error) {
-      console.error('Error adding comment:', error);
-      setError('Failed to add comment.');
+      logger.error('Error adding comment', error, { userMessage: 'Failed to add comment.' });
+      setError('Failed to add comment.'); // Keep for UI display
     } else {
-      console.log('Comment added:', data);
+      logger.info('Comment added', { data });
       setNewComment('');
       // The real-time subscription will update the comments state
     }

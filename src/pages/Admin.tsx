@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useAuth } from '@/providers/SupabaseAuthContext'; // Corrected import path
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
@@ -8,10 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, XCircle, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
+import { useDebounce } from '@/hooks/use-debounce';
+
+interface AdminUser {
+  id: string;
+  email: string;
+  verified: boolean;
+  banned: boolean;
+}
 
 const Admin = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -25,10 +35,11 @@ const Admin = () => {
     const fetchUsers = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, is_verified, is_banned');
+        .select('id, email, is_verified, is_banned')
+        .ilike('email', `%${debouncedSearchQuery}%`);
 
       if (error) {
-        console.error('Error fetching users:', error.message);
+        logger.error('Error fetching users', error, { userMessage: 'Failed to fetch user list.' });
       } else {
         setUsers(data.map(profile => ({
           id: profile.id,
@@ -40,7 +51,7 @@ const Admin = () => {
     };
 
     fetchUsers();
-  }, [isAdmin, navigate]);
+  }, [isAdmin, navigate, debouncedSearchQuery]);
 
   const handleToggleVerification = async (userId: string, currentStatus: boolean) => {
     const { error } = await supabase
@@ -49,10 +60,9 @@ const Admin = () => {
       .eq('id', userId);
 
     if (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to update verification status: ${error.message}`,
-        variant: 'destructive',
+      logger.error('Failed to update verification status', error, {
+        userMessage: `Failed to update verification status for user ${userId}.`,
+        showToast: true,
       });
     } else {
       setUsers(prevUsers =>
@@ -72,10 +82,9 @@ const Admin = () => {
       .eq('id', userId);
 
     if (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to update ban status: ${error.message}`,
-        variant: 'destructive',
+      logger.error('Failed to update ban status', error, {
+        userMessage: `Failed to update ban status for user ${userId}.`,
+        showToast: true,
       });
     } else {
       setUsers(prevUsers =>
@@ -126,7 +135,7 @@ const Admin = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold">
-                      {user.email?.[0]?.toUpperCase() || 'U'}
+                      {user.email && user.email ? user.email.toUpperCase() : 'U'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -155,7 +164,7 @@ const Admin = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold">
-                      {user.email?.[0]?.toUpperCase() || 'U'}
+                      {user.email && user.email ? user.email.toUpperCase() : 'U'}
                     </div>
                     <div>
                       <span className="font-semibold">{user.email}</span>
@@ -188,7 +197,7 @@ const Admin = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center text-white font-semibold">
-                      {user.email?.[0]?.toUpperCase() || 'U'}
+                      {user.email && user.email ? user.email.toUpperCase() : 'U'}
                     </div>
                     <div>
                       <span className="font-semibold">{user.email}</span>

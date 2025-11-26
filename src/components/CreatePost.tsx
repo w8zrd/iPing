@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useAuth } from '@/providers/SupabaseAuthContext';
+import { logger } from '@/lib/logger';
 
 const CreatePing: React.FC = () => {
   const { user } = useAuth();
@@ -22,12 +23,10 @@ const CreatePing: React.FC = () => {
     setIsPinging(false);
 
     if (error) {
-      console.error('Error creating ping:', error);
-      // We need a better error handling mechanism, but for debug now:
-      alert(`Ping creation failed: ${error.message}`);
+      logger.error('Error creating ping', error, { userMessage: `Ping creation failed: ${error.message}`, showToast: true });
     } else {
       setContent('');
-      console.log('Ping created successfully!');
+      logger.info('Ping created successfully!');
       // Assuming a mechanism exists to refresh the feed
     }
   };

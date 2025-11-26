@@ -3,9 +3,11 @@ import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 
 const SearchPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   return (
     <div className="min-h-screen pb-32">

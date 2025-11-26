@@ -144,7 +144,7 @@ All colors MUST be HSL.
   
   /* Apple-style transitions */
   .transition-apple {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   /* Smooth scale on hover */

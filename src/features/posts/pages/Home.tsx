@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
+import { logger } from '@/lib/logger';
 
 interface Profile {
   id: string;
@@ -64,11 +65,7 @@ const Home = () => {
     const { error } = await supabase.from('pings').delete().eq('id', pingId);
 
     if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete ping. Please try again.',
-        variant: 'destructive',
-      });
+      logger.error('Error deleting ping', error, { userMessage: 'Failed to delete ping. Please try again.', showToast: true });
     } else {
       setPosts((prevPosts) => prevPosts.filter((ping) => ping.id !== pingId));
       toast({
@@ -77,7 +74,6 @@ const Home = () => {
       });
     }
   };
-
 
   // Fetch pings
   useEffect(() => {
@@ -102,15 +98,10 @@ const Home = () => {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      console.log('Home.tsx: Pings fetched successfully:', data);
-      setPosts(data as any);
+      logger.info('Pings fetched successfully', { data });
+      setPosts(data as unknown as Post[]);
     } else {
-      console.error('Home.tsx: Error fetching pings:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch pings. Please try again.',
-        variant: 'destructive',
-      });
+      logger.error('Error fetching pings', error, { userMessage: 'Failed to fetch pings. Please try again.', showToast: true });
     }
   };
 
@@ -119,11 +110,11 @@ const Home = () => {
     const channel = supabase
       .channel('pings-changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pings' }, (payload) => {
-        console.log('Home.tsx: Realtime INSERT received:', payload.new);
+        logger.debug('Realtime INSERT received', { new: payload.new });
         setPosts((prevPosts) => [payload.new as Post, ...prevPosts]);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pings' }, (payload) => {
-        console.log('Home.tsx: Realtime UPDATE received:', payload.new);
+        logger.debug('Realtime UPDATE received', { new: payload.new });
         if (payload.new.views !== undefined) {
           setPosts((prevPosts) =>
             prevPosts.map((post) =>
@@ -132,12 +123,12 @@ const Home = () => {
           );
         } else {
           // For other updates, refetch the pings to ensure consistency
-          console.log('Home.tsx: Other ping update, refetching all pings.');
+          logger.info('Other ping update, refetching all pings.');
           fetchPings();
         }
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pings' }, (payload) => {
-        console.log('Home.tsx: Realtime DELETE received:', payload.old.id);
+        logger.debug('Realtime DELETE received', { oldId: payload.old.id });
         setPosts((prevPosts) => prevPosts.filter((post) => post.id !== payload.old.id));
       })
       .subscribe();
@@ -166,7 +157,7 @@ const Home = () => {
         }
       }, 100);
     }
-  }, [searchParams]);
+  }, [searchParams, setHighlightedPing, setExpandedPing]);
 
   // Clear highlight on scroll
   useEffect(() => {
@@ -187,6 +178,7 @@ const Home = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPingImage(reader.result as string);
+        logger.debug('Image loaded for ping preview');
       };
       reader.readAsDataURL(file);
     }
@@ -201,14 +193,8 @@ const Home = () => {
     
     setLoading(true);
 
-    console.log('Home.tsx: Attempting to create new ping with content:', newPing, 'and image:', pingImage);
-    const { error } = await supabase.from('pings').insert({
-      user_id: user.id,
-      content: newPing,
-      image_url: pingImage || undefined,
-    });
+    logger.debug('Home.tsx: Attempting to create new ping', { newPing, pingImage });
     try {
-      console.log('Home.tsx: Attempting to create new ping with content:', newPing, 'and image:', pingImage);
       const { error } = await supabase.from('pings').insert({
         user_id: user.id,
         content: newPing,
@@ -216,14 +202,9 @@ const Home = () => {
       });
 
       if (error) {
-        console.error('Home.tsx: Error creating ping:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to ping. Please try again.',
-          variant: 'destructive',
-        });
+        logger.error('Home.tsx: Error creating ping', error, { userMessage: 'Failed to ping. Please try again.', showToast: true });
       } else {
-        console.log('Home.tsx: Ping created successfully.');
+        logger.info('Home.tsx: Ping created successfully.');
         setNewPing('');
         setPingImage(null);
         toast({
@@ -233,11 +214,9 @@ const Home = () => {
         fetchPings();
       }
     } catch (error) {
-      console.error('Home.tsx: Unexpected error creating ping:', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred while creating ping.',
-        variant: 'destructive',
+      logger.error('Home.tsx: Unexpected error creating ping', error as Error, {
+        userMessage: 'An unexpected error occurred while creating ping.',
+        showToast: true,
       });
     } finally {
       setLoading(false);
@@ -252,16 +231,16 @@ const Home = () => {
     
     const ping = posts.find(p => p.id === pingId);
     const alreadyLiked = ping?.likes?.some(like => like.user_id === user.id);
-
+ 
     if (alreadyLiked) {
-      console.log('Home.tsx: User unliking ping:', pingId);
+      logger.debug('Home.tsx: User unliking ping', { pingId });
       const likeId = ping?.likes?.find(like => like.user_id === user.id)?.id;
       const { error } = await supabase.from('likes').delete().eq('id', likeId);
-      if (error) console.error('Home.tsx: Error unliking ping:', error);
+      if (error) logger.error('Home.tsx: Error unliking ping', error);
     } else {
-      console.log('Home.tsx: User liking ping:', pingId);
+      logger.debug('Home.tsx: User liking ping', { pingId });
       const { error } = await supabase.from('likes').insert({ user_id: user.id, post_id: pingId });
-      if (error) console.error('Home.tsx: Error liking ping:', error);
+      if (error) logger.error('Home.tsx: Error liking ping', error);
     }
     
     fetchPings();
@@ -274,19 +253,19 @@ const Home = () => {
     }
     const text = commentText[pingId]?.trim();
     if (!text) return;
-
-    console.log('Home.tsx: Attempting to add comment to ping:', pingId, 'with content:', text);
+ 
+    logger.debug('Home.tsx: Attempting to add comment to ping', { pingId, content: text });
     const { error } = await supabase.from('comments').insert({
       user_id: user.id,
       ping_id: pingId,
       content: text,
     });
     if (error) {
-      console.error('Home.tsx: Error adding comment:', error);
+      logger.error('Home.tsx: Error adding comment', error, { userMessage: 'Failed to add comment', showToast: true });
     } else {
-      console.log('Home.tsx: Comment added successfully to ping:', pingId);
+      logger.info('Home.tsx: Comment added successfully to ping', { pingId });
     }
-
+ 
     if (error) {
       toast({
         title: 'Error',
@@ -309,18 +288,18 @@ const Home = () => {
       return;
     }
     if (friendRequests.includes(targetUserId)) return;
-
-    console.log('Home.tsx: Attempting to send friend request from', user.id, 'to', targetUserId);
+ 
+    logger.debug('Home.tsx: Attempting to send friend request', { from: user.id, to: targetUserId });
     const { error } = await supabase.from('friend_requests').insert({
       from_user_id: user.id,
       to_user_id: targetUserId,
     });
     if (error) {
-      console.error('Home.tsx: Error sending friend request:', error);
+      logger.error('Home.tsx: Error sending friend request', error, { userMessage: 'Failed to send friend request.' });
     } else {
-      console.log('Home.tsx: Friend request sent successfully.');
+      logger.info('Home.tsx: Friend request sent successfully.');
     }
-
+ 
     if (!error) {
       setFriendRequests([...friendRequests, targetUserId]);
       toast({
@@ -347,6 +326,7 @@ const Home = () => {
         });
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
+          logger.error('Home.tsx: Error sharing ping', err as Error, { userMessage: 'Failed to share ping.', showToast: true });
           // Fallback to clipboard
           navigator.clipboard.writeText(shareUrl);
           toast({
@@ -524,12 +504,12 @@ const Home = () => {
                     const isExpanding = expandedPing !== ping.id;
                     toggleComments(ping.id);
                     if (isExpanding) {
-                      console.log('Home.tsx: Incrementing views for ping:', ping.id);
+                      logger.debug('Home.tsx: Incrementing views for ping', { pingId: ping.id });
                       const { error: rpcError } = await supabase.rpc('increment_ping_views', { _ping_id: ping.id });
                       if (rpcError) {
-                        console.error('Home.tsx: Error incrementing ping views:', rpcError);
+                        logger.error('Home.tsx: Error incrementing ping views', rpcError);
                       } else {
-                        console.log('Home.tsx: Ping views incremented successfully for ping:', ping.id);
+                        logger.info('Home.tsx: Ping views incremented successfully', { pingId: ping.id });
                         setPosts((prevPosts) =>
                           prevPosts.map((p) =>
                             p.id === ping.id ? { ...p, views: p.views + 1 } : p
@@ -581,10 +561,10 @@ const Home = () => {
                                )}
                             </div>
                             <span className="text-xs text-muted-foreground">
-                              @{comment.profiles?.username} · {new Date(comment.created_at).toLocaleTimeString()}
-                            </span>
-                          </div>
-                           <p className="text-sm text-foreground/90">
+                               @{comment.profiles?.username} · {new Date(comment.created_at).toLocaleTimeString()}
+                             </span>
+                           </div>
+                            <p className="text-sm text-foreground/90">
                              <ParsedText text={comment.content} />
                            </p>
                         </div>
@@ -631,5 +611,5 @@ const Home = () => {
      </div>
    );
  };
-
+ 
 export default Home;

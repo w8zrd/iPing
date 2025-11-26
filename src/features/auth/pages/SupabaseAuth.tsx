@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 const SupabaseAuth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,10 +45,9 @@ const SupabaseAuth = () => {
       }
 
       if (result.error) {
-        toast({
-          title: 'Error',
-          description: result.error.message || 'Authentication failed',
-          variant: 'destructive',
+        logger.error('Authentication failed', result.error, {
+          userMessage: result.error.message || 'Authentication failed',
+          showToast: true,
         });
       } else if (!isLogin) {
         toast({
@@ -55,11 +55,10 @@ const SupabaseAuth = () => {
           description: 'Account created! Please check your email to verify your account.',
         });
       }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Authentication failed',
-        variant: 'destructive',
+    } catch (error) {
+      logger.error('Authentication failed due to unexpected error', error as Error, {
+        userMessage: (error as Error).message || 'Authentication failed',
+        showToast: true,
       });
     } finally {
       setLoading(false);

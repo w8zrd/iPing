@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
+import { logger } from '../lib/logger';
 
 interface Post {
   id: number;
@@ -29,7 +30,7 @@ const Feed: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching posts:', error);
+        logger.error('Error fetching posts', error, { userMessage: 'Failed to fetch posts.' });
         setError('Failed to fetch posts.');
       } else {
         const postsWithCounts = await Promise.all(data.map(async (post) => {
@@ -128,7 +129,7 @@ const PostCard: React.FC<PostCardProps> = ({ post: initialPost }) => {
         .eq('user_id', user.data.user.id);
 
       if (error) {
-        console.error('Error unliking post:', error);
+        logger.error('Error unliking post', error, { userMessage: 'Failed to unlike post.' });
       } else {
         setHasLiked(false);
       }
@@ -141,7 +142,7 @@ const PostCard: React.FC<PostCardProps> = ({ post: initialPost }) => {
         ]);
 
       if (error) {
-        console.error('Error liking post:', error);
+        logger.error('Error liking post', error, { userMessage: 'Failed to like post.' });
       } else {
         setHasLiked(true);
       }

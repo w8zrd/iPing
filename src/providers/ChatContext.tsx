@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './SupabaseAuthContext';
+import { logger } from '@/lib/logger';
 
 export interface Chat {
   id: string;
@@ -90,7 +91,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .order('created_at', { foreignTable: 'chats', ascending: false });
 
     if (error) {
-      console.error('Error fetching chats:', error.message);
+      logger.error('Error fetching chats', error, { userMessage: 'Failed to load chats.' });
       setChats([]);
     } else {
       const formattedChats: Chat[] = data.map((cp: any) => {
@@ -188,7 +189,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('Error marking chat as read:', error.message);
+      logger.error('Error marking chat as read', error, { userMessage: 'Failed to mark chat as read.' });
     } else {
       setChats(prevChats =>
         prevChats.map(chat =>
@@ -207,7 +208,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (error) {
-      console.error('Error sending message:', error.message);
+      logger.error('Error sending message', error, { userMessage: 'Failed to send message.' });
     } else {
       // Update the last_message_id in the chats table
       await supabase
@@ -248,7 +249,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .eq('user_id', user.id);
 
     if (existingChatError) {
-      console.error('Error checking for existing chat:', existingChatError.message);
+      logger.error('Error checking for existing chat', existingChatError, { userMessage: 'Failed to check for existing chat.' });
       return null;
     }
 
@@ -274,7 +275,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', existingPersonalChat.chat_id)
         .single();
       if (fetchChatError) {
-        console.error('Error fetching existing chat:', fetchChatError.message);
+        logger.error('Error fetching existing chat', fetchChatError, { userMessage: 'Failed to fetch existing chat.' });
         return null;
       }
       return chatData;
@@ -288,7 +289,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (chatError) {
-      console.error('Error creating chat:', chatError.message);
+      logger.error('Error creating chat', chatError, { userMessage: 'Failed to create chat.' });
       return null;
     }
 
@@ -301,7 +302,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
     if (participantsError) {
-      console.error('Error adding chat participants:', participantsError.message);
+      logger.error('Error adding chat participants', participantsError, { userMessage: 'Failed to add chat participants.' });
       // Rollback chat creation if participants fail to be added
       await supabase.from('chats').delete().eq('id', newChat.id);
       return null;
@@ -328,7 +329,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching chat details:', error.message);
+        logger.error('Error fetching chat details', error, { userMessage: 'Failed to fetch chat details.' });
         // Optionally, handle error by notifying onUpdate with null or an error object
         return;
       }
@@ -385,11 +386,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching chat messages:', error.message);
+        logger.error('Error fetching chat messages', error, { userMessage: 'Failed to fetch chat messages.' });
         onUpdate([]); // Notify with empty array on error
         return;
       }
-      onUpdate(data as any as Message[]);
+      onUpdate(data as unknown as Message[]);
     };
 
     messagesChannel.on(

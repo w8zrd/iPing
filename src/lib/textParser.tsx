@@ -1,13 +1,14 @@
 import { useNavigate } from 'react-router-dom';
+import { useMemo, memo } from 'react';
 
 interface ParsedTextProps {
   text: string;
 }
 
-export const ParsedText = ({ text }: ParsedTextProps) => {
+export const ParsedText = memo(({ text }: ParsedTextProps) => {
   const navigate = useNavigate();
 
-  const parseText = (text: string) => {
+  const parsedContent = useMemo(() => {
     const parts = [];
     const regex = /(https?:\/\/[^\s]+|#\w+|@\w+)/g;
     let lastIndex = 0;
@@ -76,7 +77,7 @@ export const ParsedText = ({ text }: ParsedTextProps) => {
     }
 
     return parts;
-  };
+  }, [text, navigate]);
 
-  return <>{parseText(text)}</>;
-};
+  return <>{parsedContent}</>;
+});

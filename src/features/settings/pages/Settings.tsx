@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { supabase } from '@/lib/supabase';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { logger } from '@/lib/logger';
 
 interface ProfileData {
   id: string;
@@ -49,11 +50,9 @@ const Settings = () => {
         .single();
 
       if (error || !data) {
-        console.error('Error fetching profile:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load profile data.',
-          variant: 'destructive',
+        logger.error('Error fetching profile', error, {
+          userMessage: 'Failed to load profile data.',
+          showToast: true,
         });
         return;
       }
@@ -107,11 +106,9 @@ const Settings = () => {
     setIsSaving(false);
 
     if (error) {
-      console.error('Error saving settings:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to save changes: ${error.message}`,
-        variant: 'destructive',
+      logger.error('Error saving settings', error, {
+        userMessage: `Failed to save changes: ${error.message}`,
+        showToast: true,
       });
     } else {
       toast({
@@ -126,7 +123,7 @@ const Settings = () => {
         });
 
         if(updateError) {
-             console.error("Failed to update auth user metadata:", updateError);
+             logger.error("Failed to update auth user metadata", updateError);
         } else {
              setInitialUsername(username);
         }

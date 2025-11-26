@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useAuth } from '@/providers/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -26,11 +27,10 @@ const Auth = () => {
         await signUp(email, password, username); // Pass username to signUp
       }
       navigate('/');
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Authentication failed',
-        variant: 'destructive',
+    } catch (error) {
+      logger.error('Authentication failed during submission', error as Error, {
+        userMessage: (error as Error).message || 'Authentication failed',
+        showToast: true,
       });
     } finally {
       setLoading(false);
@@ -42,11 +42,10 @@ const Auth = () => {
     try {
       await signIn('@admin', 'ADMIN.admin.999');
       navigate('/admin');
-    } catch (error: any) {
-      toast({
-        title: 'Admin Login Failed',
-        description: error.message,
-        variant: 'destructive',
+    } catch (error) {
+      logger.error('Admin Login Failed', error as Error, {
+        userMessage: (error as Error).message,
+        showToast: true,
       });
     } finally {
       setLoading(false);

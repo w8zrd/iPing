@@ -8,6 +8,7 @@ import { ParsedText } from '@/lib/textParser';
 import { useChatContext } from '@/providers/ChatContext';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 
 const ChatConversation = () => {
@@ -23,7 +24,7 @@ const ChatConversation = () => {
   const [loading, setLoading] = useState(true);
 
   const otherParticipant = chat?.chat_participants?.find(
-    (p: any) => p.user_id !== currentUser?.id
+    (p: { user_id: string }) => p.user_id !== currentUser?.id
   );
 
   const loadChatData = useCallback(() => {
@@ -70,6 +71,7 @@ const ChatConversation = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setChatImage(reader.result as string);
+        logger.debug('Image loaded for preview');
       };
       reader.readAsDataURL(file);
     }
@@ -77,9 +79,14 @@ const ChatConversation = () => {
 
   const handleSend = async () => {
     if ((messageContent.trim() || chatImage) && chatId) {
-      await sendMessage(chatId, messageContent);
-      setMessageContent('');
-      setChatImage(null);
+      logger.debug('Sending message', { chatId, hasContent: !!messageContent, hasImage: !!chatImage });
+      try {
+        await sendMessage(chatId, messageContent);
+        setMessageContent('');
+        setChatImage(null);
+      } catch (error) {
+        logger.error('Failed to send message', error);
+      }
     }
   };
 

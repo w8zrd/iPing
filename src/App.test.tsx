@@ -1,10 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 import React from 'react';
 import { render } from '@testing-library/react';
 import App from './App';
+import { AuthProvider } from './providers/SupabaseAuthContext';
 
 describe('App', () => {
   it('renders without crashing', () => {
-    render(<App />);
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
   });
 });

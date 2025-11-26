@@ -12,8 +12,9 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "test": "vitest",
-   "supabase": "npx supabase"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "supabase": "npx supabase"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

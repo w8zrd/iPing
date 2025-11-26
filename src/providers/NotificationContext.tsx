@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './SupabaseAuthContext';
+import { logger } from '@/lib/logger';
 
 export interface Notification {
   id: string;
@@ -60,10 +61,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching notifications:', error.message);
+      logger.error('Error fetching notifications', error, { userMessage: 'Failed to load notifications.' });
       setNotifications([]);
     } else {
-      setNotifications(data as any as Notification[]);
+      setNotifications(data as unknown as Notification[]);
     }
     setLoadingNotifications(false);
   }, [user]);
@@ -108,7 +109,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('Error marking notification as read:', error.message);
+      logger.error('Error marking notification as read', error, { userMessage: 'Failed to mark notification as read.' });
     } else {
       setNotifications(prevNotifications =>
         prevNotifications.map(notification =>

@@ -11,6 +11,7 @@ import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { logger } from '@/lib/logger';
 
 // Supabase Data Types
 type SupabasePost = {
@@ -52,9 +53,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const { user: authUser, loading: authLoading } = useAuth();
 
-  console.log('Profile component mounted, urlUsername:', urlUsername);
+  logger.debug('Profile component mounted', { urlUsername });
 
-  console.log('Profile component mounted, urlUsername:', urlUsername);
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,18 +63,18 @@ const Profile = () => {
   const isOwnProfile = authUser?.user_metadata.username === urlUsername;
 
   useEffect(() => {
-    console.log('Profile useEffect triggered.');
+    logger.debug('Profile useEffect triggered.');
     if (authLoading) return;
     
     const targetUsername = urlUsername || (authUser?.user_metadata?.username as string);
-    console.log('Profile.tsx: targetUsername derived:', targetUsername);
+    logger.debug('Profile.tsx: targetUsername derived', { targetUsername });
 
    const fetchProfile = async (targetUser: string) => {
      setLoading(true);
-     console.log('Profile.tsx: Attempting to fetch profile for:', targetUser);
+     logger.debug('Profile.tsx: Attempting to fetch profile', { targetUser });
      
      // 1. Fetch Profile Data
-     console.log('Profile.tsx: Fetching profile data for:', targetUser);
+     logger.debug('Profile.tsx: Fetching profile data', { targetUser });
      const { data: profileData, error: profileError } = await supabase
        .from('profiles')
        .select(`id, username, display_name, bio, verified, location, created_at`)
@@ -82,21 +82,21 @@ const Profile = () => {
        .single();
        
      if (profileError) {
-       console.error('Profile.tsx: Error fetching profile:', profileError);
+       logger.error('Profile.tsx: Error fetching profile', profileError, { userMessage: 'Failed to load profile.' });
        setUserProfile(null);
        setLoading(false);
        return;
      }
      if (!profileData) {
-       console.warn('Profile.tsx: No profile data found for:', targetUser);
+       logger.warn('Profile.tsx: No profile data found', { targetUser }, { userMessage: 'Profile not found.' });
        setUserProfile(null);
        setLoading(false);
        return;
      }
-     console.log('Profile.tsx: Successfully fetched profileData:', profileData);
+     logger.debug('Profile.tsx: Successfully fetched profileData', { profileData });
      
      // 2. Fetch User Pings
-     console.log('Profile.tsx: Fetching posts for user ID:', profileData.id);
+     logger.debug('Profile.tsx: Fetching posts for user ID', { userId: profileData.id });
      const { data: postsData, error: postsError } = await supabase
        .from('pings')
        .select(`id, content, created_at`)
@@ -104,15 +104,15 @@ const Profile = () => {
        .order('created_at', { ascending: false });
 
      if (postsError) {
-        console.error('Profile.tsx: Error fetching posts:', postsError);
+        logger.error('Profile.tsx: Error fetching posts', postsError, { userMessage: 'Failed to load posts.' });
         // Continue with profile data but empty posts
      }
-     console.log('Profile.tsx: Posts fetched:', postsData);
+     logger.debug('Profile.tsx: Posts fetched', { postsData });
 
      // 3. Check if authUser is following this profile
      let isFollowing = false;
      if (authUser && authUser.id !== profileData.id) {
-       console.log('Profile.tsx: Checking follow status from', authUser.id, 'to', profileData.id);
+       logger.debug('Profile.tsx: Checking follow status', { followerId: authUser.id, followingId: profileData.id });
        const { count, error: followError } = await supabase
          .from('follows')
          .select('*', { count: 'exact' })
@@ -120,7 +120,7 @@ const Profile = () => {
          .eq('following_id', profileData.id);
 
        if (followError) {
-         console.error('Profile.tsx: Error checking follow status:', followError);
+         logger.error('Profile.tsx: Error checking follow status', followError);
        } else {
          isFollowing = count! > 0;
        }
@@ -132,7 +132,7 @@ const Profile = () => {
        is_following: isFollowing,
      } as UserProfile);
      setLoading(false);
-     console.log('Profile.tsx: setUserProfile completed.');
+     logger.debug('Profile.tsx: setUserProfile completed.');
    };
 
    if (targetUsername) {
@@ -189,11 +189,9 @@ const Profile = () => {
         .eq('following_id', profile.id);
 
       if (error) {
-        console.error('Profile.tsx: Error unfollowing:', error);
-        toast({
-          title: 'Error',
-          description: `Failed to unfollow: ${error.message}`,
-          variant: "destructive",
+        logger.error('Profile.tsx: Error unfollowing', error, {
+          userMessage: `Failed to unfollow: ${error.message}`,
+          showToast: true,
         });
       } else {
         setUserProfile(prev => prev ? { ...prev, is_following: false } : null);
@@ -211,11 +209,9 @@ const Profile = () => {
         ]);
 
       if (error) {
-        console.error('Profile.tsx: Error following:', error);
-        toast({
-          title: 'Error',
-          description: `Failed to follow: ${error.message}`,
-          variant: "destructive",
+        logger.error('Profile.tsx: Error following', error, {
+          userMessage: `Failed to follow: ${error.message}`,
+          showToast: true,
         });
       } else {
         setUserProfile(prev => prev ? { ...prev, is_following: true } : null);
