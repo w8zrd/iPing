@@ -1,22 +1,16 @@
 import { Home, Bell, MessageCircle, User } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useChatContext } from '@/contexts/ChatContext';
-import { useNotificationContext } from '@/contexts/NotificationContext';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useChatContext } from '@/providers/ChatContext';
+import { useNotificationContext } from '@/providers/NotificationContext';
+import { useAuth } from '@/providers/SupabaseAuthContext';
 
 const Navigation = () => {
   const location = useLocation();
-  const { readChats } = useChatContext();
+  const { chats } = useChatContext();
   const { unreadCount } = useNotificationContext();
   const { user } = useAuth(); // Get user from AuthContext
   
-  // Mock data - count unread chats (if user is logged in)
-  const mockChats = [
-    { id: '1', unread: true },
-    { id: '2', unread: false },
-    { id: '3', unread: false },
-  ];
-  const unreadChatsCount = user ? mockChats.filter(chat => chat.unread && !readChats.has(chat.id)).length : 0;
+  const unreadChatsCount = user ? chats.filter(chat => chat.unread).length : 0;
   
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
