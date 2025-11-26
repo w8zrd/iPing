@@ -2,10 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ParsedText } from '@/lib/textParser';
@@ -356,13 +352,13 @@ const Home = () => {
         </div>
 
         <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
-          <Textarea
+          <textarea
             placeholder="What's on your mind?"
             value={newPing}
             onChange={(e) => setNewPing(e.target.value)}
             onFocus={() => setPingInputFocused(true)}
             onBlur={() => setPingInputFocused(false)}
-            className="min-h-[100px] rounded-2xl border-border/50 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple mb-4"
+            className="min-h-[100px] rounded-2xl border-border/50 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple mb-4 p-2 w-full bg-transparent"
           />
           {pingImage && (
             <div className="relative mb-4">
@@ -383,10 +379,9 @@ const Home = () => {
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="w-full h-12 rounded-2xl"
+                className="w-full h-12 rounded-2xl border border-border/50 bg-background/50 hover:bg-background/80 transition-apple"
                 onClick={(e) => {
                   e.preventDefault();
                   (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
@@ -394,15 +389,15 @@ const Home = () => {
               >
                 <ImageIcon className="h-5 w-5 mr-2" />
                 Image
-              </Button>
+              </button>
             </label>
-            <Button
+            <button
               onClick={handlePing}
               disabled={loading || (!newPing.trim() && !pingImage)}
-              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple"
+              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Pinging...' : 'Ping'}
-            </Button>
+            </button>
           </div>
         </div>
 
@@ -441,30 +436,33 @@ const Home = () => {
                       )}
                     </div>
                     {user && ping.user_id !== user.id && (
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <button
                         onClick={() => handleFriendRequest(ping.user_id, ping.profiles?.display_name || '')}
                         disabled={friendRequests.includes(ping.user_id)}
-                        className="h-6 text-xs ml-auto rounded-full"
+                        className="h-6 text-xs ml-auto rounded-full px-3 py-1 border border-border/50 bg-background/50 hover:bg-background/80 transition-apple disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <UserPlus className="h-3 w-3 mr-1" />
                         {friendRequests.includes(ping.user_id) ? 'Requested' : 'Add'}
-                      </Button>
+                      </button>
                     )}
                     {ping.user_id === user?.id && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full ml-auto">
+                      <div className="relative">
+                        <button className="h-8 w-8 rounded-full ml-auto hover:bg-background/80 transition-apple"
+                          onClick={() => setExpandedPing(expandedPing === ping.id ? null : ping.id)}
+                        >
                             <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleDeletePing(ping.id)}>
-                            Delete Ping
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                        </button>
+                        {expandedPing === ping.id && (
+                          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                            <button
+                              onClick={() => handleDeletePing(ping.id)}
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                            >
+                              Delete Ping
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -572,7 +570,8 @@ const Home = () => {
                   ))}
                   
                   <div className="relative mt-4">
-                    <Input
+                    <input
+                      type="text"
                       placeholder="Add a comment..."
                       value={commentText[ping.id] || ''}
                       onChange={(e) => setCommentText({ ...commentText, [ping.id]: e.target.value })}
@@ -584,7 +583,7 @@ const Home = () => {
                           handleComment(ping.id);
                         }
                       }}
-                      className="h-12 pr-12 rounded-3xl glass-strong border-border/50 transition-apple px-4"
+                      className="h-12 pr-12 rounded-3xl glass-strong border-border/50 transition-apple px-4 w-full bg-transparent focus:outline-none"
                     />
                     <button
                       onClick={() => handleComment(ping.id)}

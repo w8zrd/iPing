@@ -1,7 +1,5 @@
 import { Search, X, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 
 const Header = () => {
@@ -49,7 +47,8 @@ const Header = () => {
               </>
             ) : (
               <>
-                <Input
+                <input
+                  type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -58,7 +57,7 @@ const Header = () => {
                     }
                   }}
                   placeholder="Search pings, people..."
-                  className="h-10 rounded-2xl glass border-border/50 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple"
+                  className="h-10 rounded-2xl glass border-border/50 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
                   autoFocus
                 />
                 <button

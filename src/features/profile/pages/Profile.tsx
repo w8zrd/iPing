@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowLeft, UserPlus, Check, Settings, Calendar, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import NotFound from '@/pages/error/NotFound';
@@ -231,14 +229,12 @@ const Profile = () => {
         <div className="mb-8 pt-24 animate-fade-in flex items-center justify-between">
           <div className="flex items-center gap-4">
             {!isOwnProfile && (
-              <Button
-                variant="ghost"
-                size="icon"
+              <button
                 onClick={() => navigate(-1)}
-                className="rounded-full"
+                className="p-2 rounded-full transition-colors text-muted-foreground hover:bg-background/80"
               >
                 <ArrowLeft className="h-5 w-5" />
-              </Button>
+              </button>
             )}
             <h1 className="text-3xl font-bold">Profile</h1>
           </div>
@@ -255,11 +251,9 @@ const Profile = () => {
         <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
           <div className="flex items-start gap-4 mb-4">
             <div className="relative">
-              <Avatar className="w-20 h-20 ring-4 ring-primary/20 shadow-lg">
-                <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white text-2xl font-bold">
-                  {profile.display_name[0]?.toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white text-2xl font-bold flex items-center justify-center ring-4 ring-primary/20 shadow-lg">
+                {profile.display_name[0]?.toUpperCase() || 'U'}
+              </div>
               {/* Removed userProfile.followsBack and isActive checks as they require more complex Supabase queries */}
             </div>
             
@@ -278,15 +272,14 @@ const Profile = () => {
 
           {!isOwnProfile && (
             <div className="flex gap-2 mb-4">
-              <Button
+              <button
                 onClick={handleFollowToggle}
                 disabled={loading}
-                variant={userProfile?.is_following ? "outline" : "default"}
-                className="flex-1 rounded-full hover:scale-105 transition-apple"
+                className={`flex-1 rounded-full hover:scale-105 transition-apple h-10 px-4 py-2 text-sm font-medium ${userProfile?.is_following ? 'border border-border/50 bg-background/50 hover:bg-background/80' : 'bg-primary text-primary-foreground hover:bg-primary/90'} disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center`}
               >
                 {loading ? '...' : (userProfile?.is_following ? <><Check className="h-4 w-4 mr-2" /> Following</> : <><UserPlus className="h-4 w-4 mr-2" /> Follow</>)}
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={() => {
                   if (!authUser) {
                     navigate('/auth'); // Redirect to auth page if not authenticated
@@ -294,11 +287,10 @@ const Profile = () => {
                     navigate(`/chats/${profile.username}`);
                   }
                 }}
-                variant="outline"
-                className="flex-1 rounded-full hover:scale-105 transition-apple"
+                className="flex-1 rounded-full hover:scale-105 transition-apple h-10 px-4 py-2 text-sm font-medium border border-border/50 bg-background/50 hover:bg-background/80"
               >
                 Message
-              </Button>
+              </button>
             </div>
           )}
 

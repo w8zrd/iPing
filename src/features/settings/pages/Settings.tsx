@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/providers/SupabaseAuthContext';
@@ -144,96 +139,87 @@ const Settings = () => {
     <div className="min-h-screen pb-32">
       <div className="max-w-2xl mx-auto p-4">
         <div className="mb-8 pt-8 animate-fade-in flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => navigate(-1)}
-            className="rounded-full"
+            className="p-2 rounded-full transition-colors text-muted-foreground hover:bg-background/80"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
+          </button>
           <h1 className="text-3xl font-bold">Settings</h1>
         </div>
 
         <div className="glass-strong rounded-3xl p-8 mb-6 shadow-lg animate-scale-in">
           <div className="space-y-6">
             <div className="flex flex-col items-center mb-6">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <div className="relative cursor-pointer group">
-                    <Avatar className="w-24 h-24 ring-4 ring-primary/20 shadow-lg">
-                      <AvatarImage src={profileImage || ''} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white text-3xl font-bold">
-                        {displayName[0]?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Camera className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Change Profile Picture</DialogTitle>
-                  </DialogHeader>
-                  <div className="flex flex-col gap-4 py-4">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfileImageChange}
-                      className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 file:cursor-pointer"
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <label className="relative cursor-pointer group w-24 h-24">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileImageChange}
+                  className="hidden"
+                />
+                {/* Avatar Fallback */}
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white text-3xl font-bold flex items-center justify-center ring-4 ring-primary/20 shadow-lg">
+                  {displayName[0]?.toUpperCase() || 'U'}
+                  {/* For actual image, use an <img> tag here if profileImage is set */}
+                  {profileImage && <img src={profileImage} alt="Profile" className="w-full h-full object-cover rounded-full" />}
+                </div>
+                {/* Overlay */}
+                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="h-6 w-6 text-white" />
+                </div>
+              </label>
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Username</label>
-              <Input
+              <input
+                type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
               />
             </div>
             
             <div>
               <label className="text-sm font-medium mb-2 block">Display Name</label>
-              <Input
+              <input
+                type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter your display name"
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
               />
             </div>
             
             <div>
               <label className="text-sm font-medium mb-2 block">Bio</label>
-              <Textarea
+              <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Tell us about yourself"
-                className="min-h-[100px] rounded-2xl glass border-border/50 resize-none focus:border-primary transition-apple"
+                className="min-h-[100px] rounded-2xl glass border-border/50 resize-none focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
               />
             </div>
             
             <div>
               <label className="text-sm font-medium mb-2 block">Location</label>
-              <Input
+              <input
+                type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Enter your location"
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
               />
             </div>
             
-            <Button
+            <button
               onClick={handleSave}
               disabled={isSaving}
-              className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple"
+              className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? 'Saving...' : 'Save Changes'}
-            </Button>
+            </button>
           </div>
         </div>
       </div>

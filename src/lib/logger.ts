@@ -1,4 +1,3 @@
-import { toast } from '@/components/ui/use-toast';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -45,11 +44,7 @@ export const logger = {
     const showToast = options?.showToast ?? (level === 'error' || level === 'warn');
 
     if (showToast && options?.userMessage) {
-      toast({
-        title: options.userMessage,
-        description: message, // For now, description can be the technical message
-        variant: options.toastVariant || (level === 'error' ? 'destructive' : 'default'),
-      });
+      // Toast functionality is currently removed, logging only to console.
     }
   },
 

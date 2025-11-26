@@ -1,7 +1,5 @@
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Check, Heart, UserPlus, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -98,11 +96,9 @@ const Notifications = () => {
               >
                 <div className="flex items-start gap-3">
                   <div className="relative">
-                    <Avatar className="w-12 h-12">
-                      <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
-                        {notification.sender?.display_name ? notification.sender.display_name?.toUpperCase() : '?'}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold flex items-center justify-center">
+                      {notification.sender?.display_name ? notification.sender.display_name?.toUpperCase() : '?'}
+                    </div>
                     <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
                       {getIcon(notification.type)}
                     </div>
@@ -148,25 +144,24 @@ const Notifications = () => {
                         
                         {notification.type === 'friend_request' && (
                           <div className="flex gap-2 mt-3">
-                            <Button
-                              size="sm"
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleFriendRequest(notification.id, 'accepted', notification.sender?.username || 'unknown');
                               }}
+                              className="h-8 px-4 py-2 text-sm font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
                             >
                               Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
+                            </button>
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleFriendRequest(notification.id, 'rejected', notification.sender?.username || 'unknown');
                               }}
+                              className="h-8 px-4 py-2 text-sm font-medium rounded-full border border-border/50 bg-background/50 hover:bg-background/80"
                             >
                               Decline
-                            </Button>
+                            </button>
                           </div>
                         )}
                       </>

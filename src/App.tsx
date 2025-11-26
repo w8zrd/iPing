@@ -1,6 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from 'react';
@@ -20,8 +17,6 @@ const ChatConversation = lazy(() => import("./features/chat/pages/ChatConversati
 const SupabaseAuth = lazy(() => import("./features/auth/pages/SupabaseAuth"));
 const NotFound = lazy(() => import("./pages/error/NotFound"));
 const PostDetail = lazy(() => import("./features/posts/pages/PostDetail"));
-const Admin = lazy(() => import("./pages/Admin"));
-
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -65,9 +60,6 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ChatProvider>
         <NotificationProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
             <BrowserRouter basename="/iPing">
               <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
                 <Routes>
@@ -81,15 +73,13 @@ const App = () => {
                   <Route path="/chats" element={<AuthRequiredWrapper><Chats /></AuthRequiredWrapper>} />
                   <Route path="/chats/:chatId" element={<AuthRequiredWrapper><ChatConversation /></AuthRequiredWrapper>} />
                   <Route path="/settings" element={<AuthRequiredWrapper><Settings /></AuthRequiredWrapper>} />
-                  <Route path="/admin" element={<AuthRequiredWrapper><Admin /></AuthRequiredWrapper>} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
             </BrowserRouter>
-          </TooltipProvider>
-        </NotificationProvider>
-      </ChatProvider>
-    </QueryClientProvider>
+       </NotificationProvider>
+     </ChatProvider>
+   </QueryClientProvider>
   );
 };
 

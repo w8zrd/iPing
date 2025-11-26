@@ -1,6 +1,5 @@
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useChatContext } from '@/providers/ChatContext';
@@ -69,11 +68,9 @@ const Chats = () => {
             >
               <div className="flex items-start gap-3">
                 <div className="relative">
-                  <Avatar className="w-12 h-12">
-                    <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
-                      {chat.user.displayName[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold flex items-center justify-center">
+                    {chat.user.displayName[0]?.toUpperCase()}
+                  </div>
                   {(chat.user.username === 'alex' || chat.user.username === 'mike') && (
                     <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
                   )}

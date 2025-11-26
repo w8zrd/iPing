@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import Header from '@/components/Header';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Check, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { ParsedText } from '@/lib/textParser';
 
 interface User {
@@ -107,14 +105,12 @@ const SearchResults = () => {
       <Header />
       <div className="max-w-2xl mx-auto p-4">
         <div className="mb-8 pt-24 animate-fade-in flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => navigate(-1)}
-            className="rounded-full"
+            className="p-2 rounded-full transition-colors text-muted-foreground hover:bg-background/80"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
+          </button>
           <h1 className="text-2xl font-bold">
             Results for "{query}"
           </h1>
@@ -132,11 +128,9 @@ const SearchResults = () => {
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="w-12 h-12">
-                      <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
-                        {user.displayName[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold flex items-center justify-center">
+                      {user.displayName[0]?.toUpperCase()}
+                    </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="font-semibold">{user.displayName}</span>

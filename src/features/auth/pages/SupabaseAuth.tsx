@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/providers/SupabaseAuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { logger } from '@/lib/logger';
@@ -79,42 +77,42 @@ const SupabaseAuth = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Input
+                <input
                   type="text"
                   placeholder="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                  className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
                 />
               </div>
             )}
             <div className="space-y-2">
-              <Input
+              <input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
               />
             </div>
             <div className="space-y-2">
-              <Input
+              <input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
               />
             </div>
 
-            <Button
+            <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-apple"
+              className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-apple disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
                 <>
@@ -126,7 +124,7 @@ const SupabaseAuth = () => {
               ) : (
                 'Sign Up'
               )}
-            </Button>
+            </button>
           </form>
 
           <button

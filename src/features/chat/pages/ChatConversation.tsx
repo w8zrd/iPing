@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Check, Send, Image as ImageIcon, X, CheckCheck } from 'lucide-react';
 import { ParsedText } from '@/lib/textParser';
 import { useChatContext } from '@/providers/ChatContext';
@@ -95,22 +92,18 @@ const ChatConversation = () => {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-strong border-b">
         <div className="flex items-center gap-3 p-4">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => navigate('/chats')}
-            className="rounded-full"
+            className="p-2 rounded-full transition-colors text-muted-foreground hover:bg-background/80"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
+          </button>
           
           <div className="flex items-center gap-2 flex-1">
             <div className="relative">
-              <Avatar className="w-10 h-10">
-                <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
-                  {chat.user.displayName[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold flex items-center justify-center">
+                {chat.user.displayName[0]?.toUpperCase()}
+              </div>
               {(chat.user.username === 'alex' || chat.user.username === 'mike') && (
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
               )}
@@ -209,24 +202,22 @@ const ChatConversation = () => {
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="rounded-full h-11 w-11"
+                className="rounded-full h-11 w-11 border border-border/50 bg-background/50 hover:bg-background/80 transition-apple flex items-center justify-center"
                 onClick={(e) => {
                   e.preventDefault();
                   (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
                 }}
               >
                 <ImageIcon className="h-5 w-5" />
-              </Button>
+              </button>
             </label>
-            <Textarea
+            <textarea
               value={messageContent}
               onChange={(e) => setMessageContent(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl"
+              className="flex-1 min-h-[44px] max-h-32 resize-none rounded-2xl p-2 bg-transparent focus:outline-none border border-border/50"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -234,14 +225,13 @@ const ChatConversation = () => {
                 }
               }}
             />
-            <Button
+            <button
               onClick={handleSend}
-              size="icon"
-              className="rounded-full h-11 w-11 shrink-0"
+              className="rounded-full h-11 w-11 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               disabled={!messageContent.trim() && !chatImage}
             >
               <Send className="h-5 w-5" />
-            </Button>
+            </button>
           </div>
         </div>
       </footer>
