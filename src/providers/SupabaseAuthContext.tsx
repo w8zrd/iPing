@@ -51,6 +51,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
       } else {
         setIsAdmin(false);
       }
+      setLoading(false); // Ensure loading is set to false after auth state changes
     };
 
     // Initial session check
@@ -63,6 +64,7 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
         setUser(null);
         setSession(null);
         setIsAdmin(false);
+        setLoading(false); // Ensure loading is false if no session
       }
     }).catch((error) => {
       console.error('Error fetching initial session:', error);
@@ -70,38 +72,13 @@ const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<b
         setUser(null);
         setSession(null);
         setIsAdmin(false);
-      }
-    }).finally(() => {
-      if (isMounted.current) {
-        setLoading(false);
+        setLoading(false); // Ensure loading is false on error
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!isMounted.current) return;
-      console.log('Initial session check:', session);
-      if (session) {
-        await handleAuthStateChange('INITIAL_SESSION', session);
-      } else {
-        setUser(null);
-        setSession(null);
-        setIsAdmin(false);
-      }
-    }).catch((error) => {
-      console.error('Error fetching initial session:', error);
-      if (isMounted.current) {
-        setUser(null);
-        setSession(null);
-        setIsAdmin(false);
-      }
-    }).finally(() => {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    });
 
     return () => {
       isMounted.current = false;
