@@ -23,14 +23,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const isMounted = { current: true };
 
-const fetchUserProfile = async (userId: string, isMounted: MutableRefObject<boolean>) => {
+const fetchUserProfile = async (userId: string, isMountedRef: MutableRefObject<boolean>) => {
   const { data, error } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', userId)
     .single();
 
-  if (!isMounted.current) return { isAdmin: false };
+  if (!isMountedRef.current) return { isAdmin: false };
 
   if (error) {
     console.error('Error fetching admin status:', error.message);
@@ -46,13 +46,36 @@ const fetchUserProfile = async (userId: string, isMounted: MutableRefObject<bool
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const { isAdmin } = await fetchUserProfile(session.user.id, { current: isMounted.current });
+        const { isAdmin } = await fetchUserProfile(session.user.id, isMounted);
         setIsAdmin(isAdmin);
       } else {
         setIsAdmin(false);
       }
-      setLoading(false); // Set loading to false after all async operations
     };
+
+    // Initial session check
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted.current) return;
+      console.log('Initial session check:', session);
+      if (session) {
+        await handleAuthStateChange('INITIAL_SESSION', session);
+      } else {
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+      }
+    }).catch((error) => {
+      console.error('Error fetching initial session:', error);
+      if (isMounted.current) {
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+      }
+    }).finally(() => {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 

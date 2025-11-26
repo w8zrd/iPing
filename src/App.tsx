@@ -3,20 +3,20 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ChatProvider } from "./contexts/ChatContext";
-import { NotificationProvider } from "./contexts/NotificationContext";
-import { useAuth } from "./contexts/SupabaseAuthContext";
-import Home from "./pages/Home";
-import Profile from "./pages/Profile";
-import SearchResults from "./pages/SearchResults";
-import Settings from "./pages/Settings";
-import Notifications from "./pages/Notifications";
-import Chats from "./pages/Chats";
-import ChatConversation from "./pages/ChatConversation";
-import SupabaseAuth from "./pages/SupabaseAuth";
-import NotFound from "./pages/NotFound";
+import { ChatProvider } from "./providers/ChatContext";
+import { NotificationProvider } from "./providers/NotificationContext";
+import { useAuth } from "./providers/SupabaseAuthContext";
+import Home from "./features/posts/pages/Home";
+import Profile from "./features/profile/pages/Profile";
+import SearchResults from "./features/search/pages/SearchResults";
+import Settings from "./features/settings/pages/Settings";
+import Notifications from "./features/notifications/pages/Notifications";
+import Chats from "./features/chat/pages/Chats";
+import ChatConversation from "./features/chat/pages/ChatConversation";
+import SupabaseAuth from "./features/auth/pages/SupabaseAuth";
+import NotFound from "./pages/error/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
-import PostDetail from "./pages/PostDetail"; // Import PostDetail
+import PostDetail from "./features/posts/pages/PostDetail"; // Import PostDetail
 
 const queryClient = new QueryClient();
 

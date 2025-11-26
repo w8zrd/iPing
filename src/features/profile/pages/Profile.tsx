@@ -6,11 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowLeft, UserPlus, Check, Settings, Calendar, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import NotFound from '@/pages/NotFound';
+import NotFound from '@/pages/error/NotFound';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import AuthModal from '@/components/AuthModal';
+import { useAuth } from '@/providers/SupabaseAuthContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Supabase Data Types
@@ -60,10 +59,6 @@ const Profile = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-  const openAuthModal = () => setIsAuthModalOpen(true);
-  const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const isOwnProfile = authUser?.user_metadata.username === urlUsername;
 
@@ -170,7 +165,7 @@ const Profile = () => {
 
   const handleFollowToggle = async () => {
     if (!authUser) {
-      openAuthModal();
+      navigate('/auth'); // Redirect to auth page if not authenticated
       return;
     }
 
@@ -298,7 +293,7 @@ const Profile = () => {
               <Button
                 onClick={() => {
                   if (!authUser) {
-                    openAuthModal();
+                    navigate('/auth'); // Redirect to auth page if not authenticated
                   } else {
                     navigate(`/chats/${profile.username}`);
                   }
@@ -364,7 +359,6 @@ const Profile = () => {
       </div>
 
       <Navigation />
-      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
     </div>
   );
 };
