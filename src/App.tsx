@@ -68,7 +68,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter>
+            <BrowserRouter basename="/iPing">
               <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
                 <Routes>
                   <Route path="/auth" element={<SupabaseAuth />} />
