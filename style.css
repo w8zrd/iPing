@@ -1,0 +1,450 @@
+:root {
+    --terminal-bg: #0a0a0a;
+    --terminal-text: #00ff41; /* Bright Green */
+    --terminal-font: 'Consolas', 'Monaco', 'Courier New', monospace;
+    --terminal-border: #006400; /* Darker green for borders */
+    --terminal-accent: #39ff14; /* Brighter accent/cursor */
+    --card-background: #111111;
+    --secondary-color: #777777; /* Dim text */
+    
+    /* Map existing names to terminal aesthetic */
+    --primary-color: var(--terminal-accent);
+    --background-color: var(--terminal-bg);
+    --text-color: var(--terminal-text);
+    --border-color: var(--terminal-border);
+    --font-family: var(--terminal-font);
+}
+
+/* --- Terminal Container Styling --- */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* Prevent body scroll, let main content handle it */
+}
+
+body {
+    background-color: var(--terminal-bg);
+    color: var(--terminal-text);
+    font-family: var(--terminal-font);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    /* Enforce a fixed window look with a scanline/glow effect */
+    box-shadow: 0 0 10px var(--terminal-border), 0 0 20px rgba(57, 255, 20, 0.15);
+    border: 2px solid var(--terminal-border); /* Outer terminal frame */
+    box-sizing: border-box;
+}
+
+/* --- Main Layout for Fixed Width Terminal Buffer --- */
+#app-container {
+    display: flex;
+    width: 100%;
+    max-width: 1100px; /* Fixed max-width for terminal feel */
+    margin-top: 10px;
+    flex-grow: 1;
+    padding: 0 10px;
+    box-sizing: border-box;
+}
+
+#main-content {
+    flex: 3; /* Wider main area */
+    padding: 20px;
+    min-height: 70vh;
+    overflow-y: auto; /* Scrollable output buffer */
+    border: 2px solid var(--border-color); /* Frame the screen content */
+    background-color: rgba(0, 0, 0, 0.3); /* Slightly transparent black background for main area */
+    box-shadow: inset 0 0 5px var(--terminal-border);
+}
+
+#sidebar {
+    flex: 1; 
+    padding: 0 15px;
+    min-width: 280px;
+    max-width: 350px;
+}
+
+/* --- Header --- */
+#app-header {
+    width: 100%;
+    max-width: 1100px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 20px;
+    box-sizing: border-box;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+#logo {
+    color: var(--primary-color);
+    font-size: 1.8em;
+    margin: 0;
+}
+
+nav {
+    display: flex;
+    gap: 10px;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-color);
+    padding: 10px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 9999px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-btn:hover {
+    background-color: rgba(57, 255, 20, 0.1);
+    color: var(--primary-color);
+}
+
+.nav-btn.active {
+    color: var(--text-color);
+    border-bottom: 3px solid var(--primary-color);
+    padding-bottom: 7px;
+}
+
+/* --- Card Component --- */
+.card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; /* Slightly less rounded */
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+/* --- Post Composer & Input Areas --- */
+#post-composer {
+    border-left: 3px solid var(--primary-color);
+}
+
+#post-composer h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: var(--primary-color);
+}
+
+#post-content {
+    width: 100%;
+    min-height: 80px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 10px;
+    border-radius: 4px;
+    box-sizing: border-box;
+    resize: vertical;
+    margin-bottom: 10px;
+    /* Remove focus glow, just use border change */
+}
+
+/* --- Buttons --- */
+.primary-btn {
+    background-color: var(--primary-color);
+    color: var(--terminal-bg); /* Dark text on bright button */
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+    opacity: 0.85;
+}
+
+.secondary-btn {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    padding: 6px 15px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.secondary-btn:hover {
+    background-color: rgba(57, 255, 20, 0.1);
+}
+
+.error-message {
+    color: #e0245e; /* Error red */
+    font-size: 0.85em;
+    margin: 5px 0 0 0;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- Post Card Style --- */
+.post-card {
+    border-top: 1px solid var(--border-color);
+    padding: 15px 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.post-card:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.post-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.post-avatar {
+    width: 35px; /* Slightly smaller avatar */
+    height: 35px;
+    border-radius: 50%;
+    margin-right: 10px;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+
+.post-username {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.post-handle {
+    color: var(--secondary-color);
+    margin-right: 5px;
+}
+
+.post-time {
+    color: var(--secondary-color);
+    font-size: 0.9em;
+}
+
+.post-content-text {
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+}
+
+.post-image {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 10px;
+}
+
+.post-actions {
+    display: flex;
+    gap: 20px;
+    color: var(--secondary-color);
+    font-size: 0.9em;
+}
+
+.post-action-btn {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.post-action-btn:hover {
+    color: var(--primary-color);
+}
+
+.post-action-btn.liked {
+    color: #e0245e;
+}
+
+.post-action-count {
+    margin-left: 8px;
+}
+
+/* --- Profile View Styles --- */
+#profile-view h2 {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+#profile-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    border: 2px solid var(--primary-color);
+}
+
+#profile-username {
+    font-size: 1.5em;
+    margin: 5px 0;
+}
+
+#profile-bio {
+    color: var(--secondary-color);
+    margin-bottom: 15px;
+}
+
+/* --- Sidebar & Auth Panel --- */
+#sidebar .card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+}
+
+#auth-forms {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Increased gap for terminal alignment */
+}
+
+/* === TERMINAL INPUT STYLES === */
+.form-input, #comment-input, #post-content {
+    font-family: var(--terminal-font);
+    font-size: 1em;
+    background-color: var(--terminal-bg);
+    color: var(--terminal-text);
+    border: none;
+    border-bottom: 1px solid var(--terminal-text); /* Underline only */
+    padding: 5px 0;
+    border-radius: 0;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.form-input:focus, #comment-input:focus, #post-content:focus {
+    outline: none;
+    border-bottom: 1px solid var(--terminal-accent); /* Accent on focus */
+}
+
+/* Style for the prompt prefix (e.g., user@app:~$ ) */
+.terminal-prompt {
+    color: var(--terminal-accent);
+    margin-right: 5px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Input wrappers should display the prompt if present */
+.input-with-prompt {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Adjusting specific input area for AuthView */
+#auth-forms .form-input {
+    padding-left: 5px; /* Give a little space after the imaginary prompt */
+}
+
+/* --- Blinking Cursor Effect --- */
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+.blinking-cursor {
+    animation: blink 1s step-end infinite;
+    color: var(--terminal-accent);
+    display: inline-block;
+    width: 0.7em; /* Width of the cursor block */
+    text-align: left;
+    /* Ensure it appears after the prompt/text */
+}
+
+/* --- Modal Styles --- */
+#comment-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9); /* Darker overlay */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+#comment-modal-content {
+    width: 95%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    border: 2px solid var(--terminal-border);
+    background-color: var(--terminal-bg);
+    box-shadow: 0 0 15px var(--terminal-accent);
+    padding: 20px;
+}
+
+.close-modal {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--secondary-color);
+    font-size: 1.8em;
+    cursor: pointer;
+    padding: 0;
+}
+
+#modal-post-header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+#comment-list {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding-right: 10px;
+    margin-bottom: 15px;
+}
+
+#comment-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#comment-input {
+    min-height: 50px;
+    resize: vertical;
+    padding: 8px 5px; /* Add some padding inside the input field */
+    border-bottom: 2px solid var(--terminal-text); /* Thicker underline */
+}
+
+/* --- Misc --- */
+#trends-panel ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#trends-panel li {
+    padding: 8px 0;
+    cursor: pointer;
+}
+
+#trends-panel li:hover {
+    color: var(--primary-color);
+}
+
+.loading-message, .no-posts-message {
+    text-align: center;
+    color: var(--secondary-color);
+    padding: 20px;
+}
