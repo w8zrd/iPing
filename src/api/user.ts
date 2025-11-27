@@ -71,3 +71,19 @@ export async function updateUserProfile(profileUpdate: { username?: string; disp
     throw new Error(error.message);
   }
 }
+/**
+ * Fetches the total count of users in the 'profiles' table.
+ * @returns A promise that resolves to the total user count.
+ */
+export async function getUserCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from("profiles")
+    .select("id", { count: 'exact', head: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // count should be a number if successful, or null/undefined if an error occurred (handled above)
+  return count || 0;
+}

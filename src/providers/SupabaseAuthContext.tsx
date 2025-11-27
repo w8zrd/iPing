@@ -71,35 +71,44 @@ const fetchUserProfile = async (userId: string) => {
       }
     };
 
-    // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!isMounted.current) return;
-      logger.info('Initial session check', { session });
-      if (session) {
-        await handleAuthStateChange('INITIAL_SESSION', session);
-      } else {
-        setUser(null);
-        setSession(null);
-        setIsAdmin(false);
-        setLoading(false); // Ensure loading is false if no session
-      }
-    }).catch((error) => {
-      logger.error('Error fetching initial session', error);
-      if (isMounted.current) {
-        setUser(null);
-        setSession(null);
-        setIsAdmin(false);
-        setLoading(false); // Ensure loading is false on error
-      }
-    });
+    // Initial session check - Refactored to async/await for better flow control
+    const initializeAuth = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            logger.info('Initial session check', { session });
+            if (session) {
+                await handleAuthStateChange('INITIAL_SESSION', session);
+            } else {
+                setUser(null);
+                setSession(null);
+                setIsAdmin(false);
+                setLoading(false); // Ensure loading is false if no session
+            }
+        } catch (error) {
+            logger.error('Error fetching initial session', error);
+            if (isMounted.current) {
+                setUser(null);
+                setSession(null);
+                setIsAdmin(false);
+                setLoading(false); // Ensure loading is false on error
+            }
+        }
+    }
+    initializeAuth();
+
+
+    const handleUnload = () => {
+      logger.warn('Page unloading detected. Ensure all resources are cleaned up.');
+    };
+    window.addEventListener('beforeunload', handleUnload);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
-
-    // Initial session check
 
     return () => {
       isMounted.current = false;
       subscription.unsubscribe();
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('beforeunload', handleUnload); // Added second removal in case of error
     };
   }, []);
 
