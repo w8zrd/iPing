@@ -140,14 +140,15 @@ const Home = () => {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pings' }, (payload) => {
         logger.debug('Realtime UPDATE received', { new: payload.new });
-        if (payload.new.views !== undefined) {
+        if (payload.new.views !== undefined && payload.new.likes === undefined && payload.new.comments === undefined) {
+          // Optimization: Only update views for the specific post in state if that's the only data present in the payload
           setPosts((prevPosts) =>
             prevPosts.map((post) =>
               post.id === payload.new.id ? { ...post, views: payload.new.views } : post
             )
           );
         } else {
-          // For other updates, refetch page 0 to ensure consistency
+          // For other updates (like like/comment counts changing structure), refetch page 0 to ensure consistency
           logger.info('Other ping update, refetching page 0.');
           loadPosts(false);
         }
@@ -155,8 +156,8 @@ const Home = () => {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pings' }, (payload) => {
         logger.debug('Realtime DELETE received', { oldId: payload.old.id });
         setPosts((prevPosts) => prevPosts.filter((post) => post.id !== payload.old.id));
-        // If a post is deleted, we might need to fetch a replacement for page 0 to keep it full.
-        loadPosts(false);
+        // Removing the loadPosts(false) here prevents an unnecessary re-fetch of page 0 when a post is deleted,
+        // which improves scrolling performance by avoiding layout shifts.
       })
       .subscribe();
 
@@ -237,7 +238,7 @@ const Home = () => {
         // Reset feed to page 0 to show new post immediately at the top
         setPage(0);
         setHasMore(true);
-        loadPosts(false);
+        // loadPosts(false) is redundant as the INSERT listener prepends the new post.
       }
     } catch (error) {
       logger.error('Home.tsx: Unexpected error creating ping', error as Error, {
@@ -374,7 +375,7 @@ const Home = () => {
             onChange={(e) => setNewPing(e.target.value)}
             onFocus={() => setPingInputFocused(true)}
             onBlur={() => setPingInputFocused(false)}
-            className="min-h-[100px] rounded-2xl border-border/50 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple mb-4 p-2 w-full bg-transparent"
+            className="min-h-[100px] rounded-2xl border border-border/50 resize-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary transition-apple mb-4 p-2 w-full bg-transparent"
           />
           {pingImage && (
             <div className="relative mb-4">
@@ -397,7 +398,7 @@ const Home = () => {
               />
               <button
                 type="button"
-                className="w-full h-12 rounded-2xl border border-border/50 bg-background/50 hover:bg-background/80 transition-apple"
+                className="w-full h-12 rounded-2xl border border-border/50 bg-background/50 hover:bg-background/80 transition-apple flex items-center justify-center"
                 onClick={(e) => {
                   e.preventDefault();
                   (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
@@ -410,7 +411,7 @@ const Home = () => {
             <button
               onClick={handlePing}
               disabled={loading || (!newPing.trim() && !pingImage)}
-              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-semibold transition-apple disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Pinging...' : 'Ping'}
             </button>
@@ -495,6 +496,7 @@ const Home = () => {
                 <img
                   src={ping.image_url}
                   alt="Ping image"
+                  loading="lazy"
                   className="rounded-2xl w-full mb-4 max-h-96 object-cover"
                 />
               )}

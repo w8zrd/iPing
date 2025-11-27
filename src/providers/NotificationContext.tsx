@@ -74,7 +74,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     notificationChannel.on(
       'postgres_changes',
       {
-        event: '*', // Listen for INSERT, UPDATE, DELETE
+        event: 'INSERT', // Listen for INSERT only to avoid unnecessary re-fetches on read updates
         schema: 'public',
         table: 'notifications',
         filter: `recipient_id=eq.${user.id}`

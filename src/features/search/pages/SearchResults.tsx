@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
+import { useDebounce } from '@/hooks/use-debounce';
 import Header from '@/components/Header';
 import { Avatar, AvatarFallback } from '@/components/ui/Avatar';
 import { Check, ArrowLeft, Hash } from 'lucide-react';
@@ -32,17 +33,19 @@ interface Post {
 const SearchResults = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const query = searchParams.get('q') || '';
+  const urlQuery = searchParams.get('q') || '';
+  const [debouncedQuery] = useDebounce(urlQuery, 300); // Debounce input by 300ms for faster perceived performance
+  
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [hashtags, setHashtags] = useState<string[]>([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (query.trim()) {
-      performSearch(query.trim());
+    if (debouncedQuery.trim()) {
+      performSearch(debouncedQuery.trim());
     }
-  }, [query]);
+  }, [debouncedQuery]); // Depend on debouncedQuery
 
   const performSearch = async (searchQuery: string) => {
     const isHashtagSearch = searchQuery.startsWith('#');
@@ -112,7 +115,7 @@ const SearchResults = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-2xl font-bold">
-            Results for "{query}"
+            Results for "{urlQuery}"
           </h1>
         </div>
 
@@ -227,10 +230,10 @@ const SearchResults = () => {
           </div>
         )}
 
-        {filteredUsers.length === 0 && filteredPosts.length === 0 && hashtags.length === 0 && query && (
+        {filteredUsers.length === 0 && filteredPosts.length === 0 && hashtags.length === 0 && urlQuery && (
           <div className="glass rounded-3xl p-8 text-center animate-scale-in">
             <p className="text-muted-foreground">
-              No results found for "{query}"
+              No results found for "{urlQuery}"
             </p>
           </div>
         )}

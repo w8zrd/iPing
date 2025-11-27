@@ -117,14 +117,59 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     fetchChats(); // Initial fetch
 
-    // Function to re-fetch chats on relevant changes
-    const handleChatUpdate = () => {
-      fetchChats();
-    };
+    // Optimization: Handler to update chat list state incrementally on new message
+    const updateChatList = useCallback((newMessage: Message) => {
+        setChats(prevChats => {
+            const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
+            if (chatIndex === -1) {
+                // If the chat isn't currently loaded in the list, a full fetch (triggered by other events like participant change) will eventually catch it.
+                return prevChats;
+            }
+
+            const updatedChats = [...prevChats];
+            const chatToUpdate = updatedChats[chatIndex];
+
+            const lastMessage = {
+                ...newMessage,
+                sender: newMessage.sender,
+            };
+
+            // Check unread status based on the new message's timestamp vs the last read time
+            const isUnread = chatToUpdate.last_read_at && new Date(lastMessage.created_at) > new Date(chatToUpdate.last_read_at);
+            
+            updatedChats[chatIndex] = {
+                ...chatToUpdate,
+                last_message: lastMessage,
+                last_message_id: newMessage.id,
+                unread: isUnread,
+            };
+
+            return updatedChats;
+        });
+    }, []);
 
     const chatChannel = supabase.channel(`user_chats:${user.id}`);
 
-    // Listen for changes in chat_participants relevant to the current user
+    // Listen for updates to chats the user is part of (last_message_id change)
+    chatChannel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'chats',
+        filter: `last_message_id=neq.null`
+      },
+      (payload) => {
+        // Fetch chats list only if an update that affects the list summary (like chat_name) occurs,
+        // or if a message arrived that wasn't processed below.
+        // Since new messages are handled below, we only re-fetch on other non-participant updates.
+        // For simplicity, we rely on participant updates and message inserts/updates below for a full refresh when necessary.
+        // The participant update is still useful for user profile changes in the list.
+        fetchChats();
+      }
+    );
+
+    // Listen for changes in chat_participants relevant to the current user (e.g., new group member added)
     chatChannel.on(
       'postgres_changes',
       {
@@ -139,24 +184,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Listen for updates to chats the user is part of
-    // This filter will be applied dynamically based on current chats state
-    // Listen for updates to chats the user is part of (any chat ID)
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'chats',
-        filter: `last_message_id=neq.null` // Listen for any chat updates that have a last message (i.e., active chats)
-      },
-      (payload) => {
-        console.log('Chat update received!', payload);
-        // Re-fetch to ensure data consistency if any chat the user is part of is updated
-        handleChatUpdate();
-      }
-    );
-
     // Listen for new messages in any chat the user might be a part of
     chatChannel.on(
       'postgres_changes',
@@ -168,8 +195,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       },
       (payload) => {
         console.log('New message received!', payload);
-        // Re-fetch to ensure data consistency if a new message is relevant
-        handleChatUpdate();
+        // Optimization: Update chat list state directly with new message data
+        updateChatList(payload.new as Message);
       }
     );
     
@@ -178,7 +205,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(chatChannel);
     };
-  }, [fetchChats, user]);
+  }, [fetchChats, user, updateChatList]); // Added updateChatList as dependency
 
   const markChatAsRead = async (chatId: string) => {
     if (!user) return;
