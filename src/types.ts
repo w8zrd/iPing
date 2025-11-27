@@ -58,3 +58,53 @@ export interface PingInteraction {
     interaction_type: 'LIKE' | 'REPOST';
     created_at: string;
 }
+/**
+ * Chat Table Interface
+ */
+export interface Chat {
+  id: string;
+  created_at: string;
+  chat_name: string | null;
+  is_group_chat: boolean;
+  last_message_id: string | null;
+  messages?: Message[];
+  participants?: ChatParticipant[];
+  last_message?: Message;
+  unread?: boolean;
+  last_read_at?: string | null;
+}
+
+/**
+ * Message Table Interface
+ */
+export interface Message {
+  id: string;
+  created_at: string;
+  chat_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  sender?: {
+    display_name: string;
+    username: string;
+    verified: boolean;
+    avatar_url: string;
+  };
+}
+
+/**
+ * Chat Participant Table Interface
+ */
+export interface ChatParticipant {
+  id: string;
+  created_at: string;
+  chat_id: string;
+  user_id: string;
+  last_read_at: string | null;
+  profiles?: {
+    display_name: string;
+    username: string;
+    verified: boolean;
+    avatar_url: string;
+  };
+}
