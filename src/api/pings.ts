@@ -56,8 +56,7 @@ export async function fetchFeedPings(from: number = 0, to: number = 50): Promise
   // NOTE: Counts and interaction status are currently mocked.
   return data.map(ping => ({
     ...ping,
-    // The select on a many-to-one relationship returns an array of one item
-    profiles: Array.isArray(ping.profiles) ? ping.profiles : ping.profiles, // Corrected mock data access from array to first element based on common Supabase select structure.
+    profiles: Array.isArray(ping.profiles) ? ping.profiles : ping.profiles,
     like_count: 0,
     repost_count: 0,
     is_liked: false,
@@ -119,7 +118,5 @@ export async function createPing({
     throw new Error(error.message);
   }
 
-  // Return the newly created ping data, potentially with profile info if RLS allows selection on insert.
-  // For now, return data which is typically the inserted row.
   return data;
 }
