@@ -2,10 +2,10 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './SupabaseAuthContext';
 import { logger } from '@/lib/logger';
-import { Profile, Notification as AppNotification } from '@/types'; // Corrected import based on new types.ts
+import { Profile, Notification as AppNotification } from '@/types'; // Import the updated AppNotification type
 
 export interface Notification extends AppNotification {
-  sender?: Pick<Profile, 'display_name' | 'username' | 'verified' | 'avatar_url' | 'is_admin'>;
+  sender?: Pick<Profile, 'username' | 'avatar_url' | 'is_admin'> & { display_name?: string; verified?: boolean };
   pings?: {
     id: string;
     content: string;
