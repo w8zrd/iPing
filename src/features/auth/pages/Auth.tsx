@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState(''); // Add username state
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, loading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -26,7 +26,7 @@ const Auth = () => {
       } else {
         await signUp(email, password, username); // Pass username to signUp
       }
-      navigate('/');
+      // Do not navigate here, wait for context loading to finish
     } catch (error) {
       logger.error('Authentication failed during submission', error as Error, {
         userMessage: (error as Error).message || 'Authentication failed',
@@ -41,7 +41,7 @@ const Auth = () => {
     setLoading(true);
     try {
       await signIn('@admin', 'ADMIN.admin.999');
-      navigate('/admin');
+      // Do not navigate here, wait for context loading to finish
     } catch (error) {
       logger.error('Admin Login Failed', error as Error, {
         userMessage: (error as Error).message,
@@ -51,6 +51,18 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  // Navigate once auth context loading is complete (user/session is established)
+  useEffect(() => {
+    if (!loading && authLoading === false) {
+      if (isLogin) {
+        navigate('/');
+      } else if (user) {
+        // For signup, navigate to home or profile as needed after successful signup
+        navigate('/');
+      }
+    }
+  }, [loading, authLoading, user, isLogin, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background">
