@@ -69,7 +69,9 @@ const CreatePing: React.FC = () => {
     <div className="w-full max-w-2xl mx-auto bg-white rounded-lg shadow-md p-4 mb-4">
       <form onSubmit={handleSubmit}>
         <textarea
-          className="w-full p-2 border rounded-lg resize-none focus:ring-blue-500 focus:border-blue-500 transition"
+          id="content-input"
+          name="content-input"
+          className="w-full p-2 border border-gray-300 rounded-lg resize-none focus:ring-blue-500 focus:border-blue-500 transition"
           placeholder="What's on your mind? Add an image for extra flair!"
           rows={imagePreview ? 4 : 2}
           value={content}
@@ -90,10 +92,11 @@ const CreatePing: React.FC = () => {
         )}
 
         <div className="flex justify-between items-center mt-3">
-          <label htmlFor="media-upload" className="cursor-pointer text-blue-500 hover:text-blue-700 transition">
+          <label htmlFor="media-upload" className="cursor-pointer text-blue-500 hover:text-blue-700 transition inline-flex items-center">
             <ImageIcon className="h-6 w-6" />
             <input
               id="media-upload"
+              name="media-upload"
               type="file"
               accept="image/*"
               onChange={handleFileChange}
@@ -106,11 +109,11 @@ const CreatePing: React.FC = () => {
             disabled={isPinging || uploading || (!content.trim() && !imageFile) || !user}
             className={`px-4 py-2 rounded-lg transition-colors font-semibold text-sm ${
               isPinging || uploading || (!content.trim() && !imageFile) || !user
-                ? 'bg-gray-400 cursor-not-allowed text-gray-700'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
+                ? 'bg-gray-400 cursor-not-allowed text-gray-700 border border-transparent'
+                : 'bg-blue-500 text-white hover:bg-blue-600 border border-transparent'
             }`}
           >
-            {isPinging || uploading ? (uploading ? 'Uploading...' : 'Pinging...') : 'Ping'}
+            {isPinging || uploading ? (uploading ? 'Uploading...' : 'Posting...') : 'Ping'}
           </button>
         </div>
       </form>
