@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { logger } from '@/lib/logger';
 import { uploadMedia } from '@/api/storage';
+import { createPing } from '@/api/pings';
 import { Image as ImageIcon, X } from 'lucide-react'; // Import icons for media button
 
 const CreatePing: React.FC = () => {
@@ -42,21 +42,17 @@ const CreatePing: React.FC = () => {
         setUploading(false);
       }
 
-      const { error } = await supabase
-        .from('pings')
-        .insert([
-          { user_id: user.id, content: content.trim(), image_url: imageUrl }
-        ]);
-        
-      if (error) {
-        logger.error('Error creating ping', error, { userMessage: `Ping creation failed: ${error.message}`, showToast: true });
-      } else {
-        setContent('');
-        setImageFile(null);
-        setImagePreview(null);
-        logger.info('Ping created successfully!');
-        // Assuming a mechanism exists to refresh the feed
-      }
+      await createPing({
+        user_id: user.id,
+        content: content.trim(),
+        image_url: imageUrl,
+      });
+
+      setContent('');
+      setImageFile(null);
+      setImagePreview(null);
+      logger.info('Ping created successfully!');
+      // Assuming a mechanism exists to refresh the feed
     } catch (error) {
       logger.error('Error in post creation process', error, { userMessage: `Post failed: ${error instanceof Error ? error.message : 'unknown error'}`, showToast: true });
     } finally {

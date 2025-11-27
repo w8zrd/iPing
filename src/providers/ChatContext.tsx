@@ -13,6 +13,7 @@ export interface Chat {
   participants?: ChatParticipant[];
   last_message?: Message; // For displaying in chat list
   unread?: boolean;
+  last_read_at?: string | null;
 }
 
 export interface Message {
@@ -62,6 +63,37 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loadingChats, setLoadingChats] = useState(true);
+
+  // Optimization: Handler to update chat list state incrementally on new message
+  const updateChatList = useCallback((newMessage: Message) => {
+      setChats(prevChats => {
+          const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
+          if (chatIndex === -1) {
+              // If the chat isn't currently loaded in the list, a full fetch (triggered by other events like participant change) will eventually catch it.
+              return prevChats;
+          }
+
+          const updatedChats = [...prevChats];
+          const chatToUpdate = updatedChats[chatIndex];
+
+          const lastMessage = {
+              ...newMessage,
+              sender: newMessage.sender ? newMessage.sender : undefined,
+          };
+
+          // Check unread status based on the new message's timestamp vs the last read time
+          const isUnread = chatToUpdate.last_read_at && new Date(lastMessage.created_at) > new Date(chatToUpdate.last_read_at);
+          
+          updatedChats[chatIndex] = {
+              ...chatToUpdate,
+              last_message: lastMessage,
+              last_message_id: newMessage.id,
+              unread: isUnread,
+          };
+
+          return updatedChats;
+      });
+  }, []);
 
   const fetchChats = useCallback(async () => {
     if (!user) {
@@ -116,37 +148,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
 
     fetchChats(); // Initial fetch
-
-    // Optimization: Handler to update chat list state incrementally on new message
-    const updateChatList = useCallback((newMessage: Message) => {
-        setChats(prevChats => {
-            const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
-            if (chatIndex === -1) {
-                // If the chat isn't currently loaded in the list, a full fetch (triggered by other events like participant change) will eventually catch it.
-                return prevChats;
-            }
-
-            const updatedChats = [...prevChats];
-            const chatToUpdate = updatedChats[chatIndex];
-
-            const lastMessage = {
-                ...newMessage,
-                sender: newMessage.sender,
-            };
-
-            // Check unread status based on the new message's timestamp vs the last read time
-            const isUnread = chatToUpdate.last_read_at && new Date(lastMessage.created_at) > new Date(chatToUpdate.last_read_at);
-            
-            updatedChats[chatIndex] = {
-                ...chatToUpdate,
-                last_message: lastMessage,
-                last_message_id: newMessage.id,
-                unread: isUnread,
-            };
-
-            return updatedChats;
-        });
-    }, []);
 
     const chatChannel = supabase.channel(`user_chats:${user.id}`);
 

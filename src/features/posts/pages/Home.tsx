@@ -8,6 +8,7 @@ import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { apiService } from '@/services/apiService';
 import { useAuth } from '@/providers/SupabaseAuthContext';
+import { createPing, toggleLike } from '@/api/pings';
 import { logger } from '@/lib/logger';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 
@@ -223,28 +224,22 @@ const Home = () => {
 
     logger.debug('Home.tsx: Attempting to create new ping', { newPing, pingImage });
     try {
-      const { error } = await supabase.from('pings').insert({
+      await createPing({
         user_id: user.id,
         content: newPing,
         image_url: pingImage || undefined,
       });
 
-      if (error) {
-        logger.error('Home.tsx: Error creating ping', error, { userMessage: 'Failed to ping. Please try again.', showToast: true });
-      } else {
-        logger.info('Home.tsx: Ping created successfully.');
-        setNewPing('');
-        setPingImage(null);
-        // Reset feed to page 0 to show new post immediately at the top
-        setPage(0);
-        setHasMore(true);
-        // loadPosts(false) is redundant as the INSERT listener prepends the new post.
-      }
+      logger.info('Home.tsx: Ping created successfully.');
+      setNewPing('');
+      setPingImage(null);
+      // Reset feed to page 0 to show new post immediately at the top
+      setPage(0);
+      setHasMore(true);
+      // loadPosts(false) is redundant as the INSERT listener prepends the new post.
     } catch (error) {
-      logger.error('Home.tsx: Unexpected error creating ping', error as Error, {
-        userMessage: 'An unexpected error occurred while creating ping.',
-        showToast: true,
-      });
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      logger.error('Home.tsx: Error creating ping', error, { userMessage: `Failed to ping. Please try again. Details: ${errorMessage}`, showToast: true });
     } finally {
       setLoading(false);
     }
@@ -257,17 +252,14 @@ const Home = () => {
     }
     
     const ping = posts.find(p => p.id === pingId);
-    const alreadyLiked = ping?.likes?.some(like => like.user_id === user.id);
+    const alreadyLiked = ping?.likes?.some(like => like.user_id === user.id) || false;
  
-    if (alreadyLiked) {
-      logger.debug('Home.tsx: User unliking ping', { pingId });
-      const likeId = ping?.likes?.find(like => like.user_id === user.id)?.id;
-      const { error } = await supabase.from('likes').delete().eq('id', likeId);
-      if (error) logger.error('Home.tsx: Error unliking ping', error);
-    } else {
-      logger.debug('Home.tsx: User liking ping', { pingId });
-      const { error } = await supabase.from('likes').insert({ user_id: user.id, post_id: pingId });
-      if (error) logger.error('Home.tsx: Error liking ping', error);
+    try {
+      await toggleLike(pingId, alreadyLiked);
+      logger.info(`Home.tsx: Successfully ${alreadyLiked ? 'unliked' : 'liked'} ping ${pingId}.`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      logger.error(`Home.tsx: Error toggling like on ping ${pingId}`, error, { userMessage: `Failed to change like status. Details: ${errorMessage}`, showToast: true });
     }
     
     // Re-fetch page 0 after like/unlike to ensure like count/status is correct

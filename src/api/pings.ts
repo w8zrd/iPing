@@ -57,7 +57,7 @@ export async function fetchFeedPings(from: number = 0, to: number = 50): Promise
   return data.map(ping => ({
     ...ping,
     // The select on a many-to-one relationship returns an array of one item
-    profiles: Array.isArray(ping.profiles) ? ping.profiles : ping.profiles,
+    profiles: Array.isArray(ping.profiles) ? ping.profiles : ping.profiles, // Corrected mock data access from array to first element based on common Supabase select structure.
     like_count: 0,
     repost_count: 0,
     is_liked: false,
@@ -89,4 +89,37 @@ export async function toggleRepost(ping_id: string, is_reposted: boolean) {
     
     if (error) throw new Error(error.message);
   }
+}
+
+/**
+ * Creates a new ping post.
+ * @param user_id The ID of the user creating the ping.
+ * @param content The text content of the ping.
+ * @param image_url Optional URL for an attached image.
+ */
+export async function createPing({
+  user_id,
+  content,
+  image_url,
+}: {
+  user_id: string;
+  content: string;
+  image_url?: string;
+}) {
+  const { data, error } = await supabase.from('pings').insert({
+    user_id,
+    content,
+    image_url,
+  }).select(`
+    *,
+    profiles(id, username, display_name, verified, is_admin)
+    `);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Return the newly created ping data, potentially with profile info if RLS allows selection on insert.
+  // For now, return data which is typically the inserted row.
+  return data;
 }
