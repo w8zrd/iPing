@@ -64,7 +64,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loadingChats, setLoadingChats] = useState(true);
 
-  // Optimization: Handler to update chat list state incrementally on new message
+
+
   const updateChatList = useCallback((newMessage: Message) => {
       setChats(prevChats => {
           const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
