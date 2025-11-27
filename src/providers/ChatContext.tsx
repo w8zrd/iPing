@@ -112,6 +112,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     setChats(prevChats => {
       const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
       if (chatIndex === -1) {
+        // If chat is not in the list, we should probably fetch it.
+        // For now, returning prevChats to avoid errors. A full fetch on new message to an unlisted chat might be needed.
         return prevChats;
       }
       const updatedChats = [...prevChats];
@@ -127,6 +129,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         last_message_id: newMessage.id,
         unread: isUnread,
       };
+      // Sort chats to bring the one with the new message to the top
       return updatedChats.sort((a, b) => {
         if (!a.last_message) return 1;
         if (!b.last_message) return -1;
@@ -209,6 +212,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       logger.error('Error sending message', error, { userMessage: 'Failed to send message.' });
     } else {
+      // After sending a message, update the last_message_id for the chat
       await supabase
         .from('chats')
         .update({ last_message_id: data.id })
@@ -234,20 +238,21 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  const createPersonalChat = async (participantId: string) => {
+  const createPersonalChat = async (participantId: string): Promise<Chat | null> => {
     if (!user) return null;
 
-    const { data: existingChats, error: existingChatError } = await supabase.rpc('create_personal_chat', {
+    // Use RPC to either find an existing chat or create a new one.
+    const { data: rpcData, error: rpcError } = await supabase.rpc('create_personal_chat', {
         p_user_id: participantId
     });
 
-    if (existingChatError) {
-      logger.error('Error creating or fetching personal chat', existingChatError, { userMessage: 'Could not start chat.' });
+    if (rpcError) {
+      logger.error('Error creating or fetching personal chat', rpcError, { userMessage: 'Could not start chat.' });
       return null;
     }
     
-    if (existingChats && existingChats.length > 0) {
-        const chatId = existingChats.id;
+    if (rpcData && rpcData.length > 0) {
+        const chatId = rpcData.id;
         // The RPC returns the chat ID, now fetch the full chat object
         const { data: chatData, error: fetchChatError } = await supabase
             .from('chats')
@@ -255,7 +260,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 id, created_at, chat_name, is_group_chat, last_message_id,
                 messages (
                     id, created_at, chat_id, sender_id, content, is_read,
-                    sender:profiles!inner (display_name, username, verified, avatar_url)
+                    sender:profiles!inner(display_name, username, verified, avatar_url)
                 ),
                 chat_participants (
                     id, user_id,
@@ -269,7 +274,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             logger.error('Error fetching newly created or existing chat', fetchChatError);
             return null;
         }
-        return chatData as Chat;
+        return chatData as unknown as Chat;
     }
     return null;
   };
