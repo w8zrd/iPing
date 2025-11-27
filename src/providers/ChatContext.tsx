@@ -64,9 +64,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loadingChats, setLoadingChats] = useState(true);
 
-
-
-
   const fetchChats = useCallback(async () => {
     if (!user) {
       setChats([]);
@@ -111,104 +108,76 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     setLoadingChats(false);
   }, [user]);
 
-  const updateChatList = (newMessage: Message) => {
-      setChats(prevChats => {
-          const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
-          if (chatIndex === -1) {
-              // If the chat isn't currently loaded in the list, a full fetch (triggered by other events like participant change) will eventually catch it.
-              return prevChats;
-          }
-
-          const updatedChats = [...prevChats];
-          const chatToUpdate = updatedChats[chatIndex];
-
-          const lastMessage = {
-              ...newMessage,
-              sender: newMessage.sender ? newMessage.sender : undefined,
-          };
-
-          // Check unread status based on the new message's timestamp vs the last read time
-          const isUnread = chatToUpdate.last_read_at && new Date(lastMessage.created_at) > new Date(chatToUpdate.last_read_at);
-          
-          updatedChats[chatIndex] = {
-              ...chatToUpdate,
-              last_message: lastMessage,
-              last_message_id: newMessage.id,
-              unread: isUnread,
-          };
-
-          return updatedChats;
+  const updateChatList = useCallback((newMessage: Message) => {
+    setChats(prevChats => {
+      const chatIndex = prevChats.findIndex(chat => chat.id === newMessage.chat_id);
+      if (chatIndex === -1) {
+        return prevChats;
+      }
+      const updatedChats = [...prevChats];
+      const chatToUpdate = updatedChats[chatIndex];
+      const lastMessage = {
+        ...newMessage,
+        sender: newMessage.sender,
+      };
+      const isUnread = chatToUpdate.last_read_at ? new Date(lastMessage.created_at) > new Date(chatToUpdate.last_read_at) : true;
+      updatedChats[chatIndex] = {
+        ...chatToUpdate,
+        last_message: lastMessage,
+        last_message_id: newMessage.id,
+        unread: isUnread,
+      };
+      return updatedChats.sort((a, b) => {
+        if (!a.last_message) return 1;
+        if (!b.last_message) return -1;
+        return new Date(b.last_message.created_at).getTime() - new Date(a.last_message.created_at).getTime();
       });
-  };
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) {
-      // If no user, clear chats and don't set up listeners
       setChats([]);
       setLoadingChats(false);
       return;
     }
 
-    fetchChats(); // Initial fetch
+    fetchChats();
 
     const chatChannel = supabase.channel(`user_chats:${user.id}`);
 
-    // Listen for updates to chats the user is part of (last_message_id change)
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'chats',
-        filter: `last_message_id=neq.null`
-      },
-      (payload) => {
-        // Fetch chats list only if an update that affects the list summary (like chat_name) occurs,
-        // or if a message arrived that wasn't processed below.
-        // Since new messages are handled below, we only re-fetch on other non-participant updates.
-        // For simplicity, we rely on participant updates and message inserts/updates below for a full refresh when necessary.
-        // The participant update is still useful for user profile changes in the list.
-        fetchChats();
-      }
-    );
-
-    // Listen for changes in chat_participants relevant to the current user (e.g., new group member added)
     chatChannel.on(
       'postgres_changes',
       {
         event: '*',
         schema: 'public',
         table: 'chat_participants',
-        filter: `user_id=eq.${user.id}`
+        filter: `user_id=eq.${user.id}`,
       },
       (payload) => {
-        console.log('Chat participant change received!', payload);
-        fetchChats(); // Re-fetch all chats if a participant record changes
-      }
-    );
-
-    // Listen for new messages in any chat the user might be a part of
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `chat_id=neq.null` // Listen for any new messages
-      },
-      (payload) => {
-        console.log('New message received!', payload);
-        // Optimization: Update chat list state directly with new message data
-        updateChatList(payload.new as Message);
+        logger.debug('Chat participant change received, refetching chats', { payload });
+        fetchChats();
       }
     );
     
-    chatChannel.subscribe();
+    chatChannel.on<Message>(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          logger.debug('New message received, updating chat list', { payload });
+          updateChatList(payload.new);
+        }
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(chatChannel);
     };
-  }, [fetchChats, user, updateChatList]); // Added updateChatList as dependency
+  }, [user, fetchChats, updateChatList]);
 
   const markChatAsRead = async (chatId: string) => {
     if (!user) return;
@@ -240,7 +209,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       logger.error('Error sending message', error, { userMessage: 'Failed to send message.' });
     } else {
-      // Update the last_message_id in the chats table
       await supabase
         .from('chats')
         .update({ last_message_id: data.id })
@@ -269,77 +237,41 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const createPersonalChat = async (participantId: string) => {
     if (!user) return null;
 
-    // Check if a chat already exists between these two users
-    const { data: existingChats, error: existingChatError } = await supabase
-      .from('chat_participants')
-      .select(`
-        chat_id,
-        chats!inner(id, is_group_chat, chat_participants(user_id))
-      `)
-      .eq('user_id', user.id);
+    const { data: existingChats, error: existingChatError } = await supabase.rpc('create_personal_chat', {
+        p_user_id: participantId
+    });
 
     if (existingChatError) {
-      logger.error('Error checking for existing chat', existingChatError, { userMessage: 'Failed to check for existing chat.' });
+      logger.error('Error creating or fetching personal chat', existingChatError, { userMessage: 'Could not start chat.' });
       return null;
     }
+    
+    if (existingChats && existingChats.length > 0) {
+        const chatId = existingChats.id;
+        // The RPC returns the chat ID, now fetch the full chat object
+        const { data: chatData, error: fetchChatError } = await supabase
+            .from('chats')
+            .select(`
+                id, created_at, chat_name, is_group_chat, last_message_id,
+                messages (
+                    id, created_at, chat_id, sender_id, content, is_read,
+                    sender:profiles!inner (display_name, username, verified, avatar_url)
+                ),
+                chat_participants (
+                    id, user_id,
+                    profiles (display_name, username, verified, avatar_url)
+                )
+            `)
+            .eq('id', chatId)
+            .single();
 
-    const existingPersonalChat = existingChats.find((cp: any) =>
-      !cp.chats.is_group_chat &&
-      cp.chats.chat_participants.some((p: any) => p.user_id === participantId)
-    );
-
-    if (existingPersonalChat) {
-      const { data: chatData, error: fetchChatError } = await supabase
-        .from('chats')
-        .select(`
-          id, created_at, chat_name, is_group_chat, last_message_id,
-          messages (
-            id, created_at, chat_id, sender_id, content, is_read,
-            sender:profiles (display_name, username, verified, avatar_url)
-          ),
-          chat_participants (
-            id, user_id,
-            profiles (display_name, username, verified, avatar_url)
-          )
-        `)
-        .eq('id', existingPersonalChat.chat_id)
-        .single();
-      if (fetchChatError) {
-        logger.error('Error fetching existing chat', fetchChatError, { userMessage: 'Failed to fetch existing chat.' });
-        return null;
-      }
-      return chatData;
+        if (fetchChatError) {
+            logger.error('Error fetching newly created or existing chat', fetchChatError);
+            return null;
+        }
+        return chatData as Chat;
     }
-
-    // Create a new chat
-    const { data: newChat, error: chatError } = await supabase
-      .from('chats')
-      .insert({ is_group_chat: false })
-      .select()
-      .single();
-
-    if (chatError) {
-      logger.error('Error creating chat', chatError, { userMessage: 'Failed to create chat.' });
-      return null;
-    }
-
-    // Add participants to the new chat
-    const { error: participantsError } = await supabase
-      .from('chat_participants')
-      .insert([
-        { chat_id: newChat.id, user_id: user.id },
-        { chat_id: newChat.id, user_id: participantId },
-      ]);
-
-    if (participantsError) {
-      logger.error('Error adding chat participants', participantsError, { userMessage: 'Failed to add chat participants.' });
-      // Rollback chat creation if participants fail to be added
-      await supabase.from('chats').delete().eq('id', newChat.id);
-      return null;
-    }
-
-    fetchChats(); // Refresh chat list
-    return newChat;
+    return null;
   };
 
   const fetchChatDetails = useCallback((chatId: string, onUpdate: (chat: Chat) => void) => {
@@ -360,7 +292,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         logger.error('Error fetching chat details', error, { userMessage: 'Failed to fetch chat details.' });
-        // Optionally, handle error by notifying onUpdate with null or an error object
         return;
       }
       onUpdate(data as Chat);
@@ -369,33 +300,15 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     chatChannel.on(
       'postgres_changes',
       {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'chats',
-        filter: `id=eq.${chatId}`
-      },
-      (payload) => {
-        console.log('Chat details update received!', payload);
-        handleChatUpdate();
-      }
-    );
-
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'INSERT', // For new participants being added to a chat
+        event: '*',
         schema: 'public',
         table: 'chat_participants',
         filter: `chat_id=eq.${chatId}`
       },
-      (payload) => {
-        console.log('Chat participant added received!', payload);
-        handleChatUpdate();
-      }
-    );
-
-    chatChannel.subscribe();
-    handleChatUpdate(); // Initial fetch
+      handleChatUpdate
+    ).subscribe();
+    
+    handleChatUpdate();
 
     return () => {
       supabase.removeChannel(chatChannel);
@@ -417,7 +330,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         logger.error('Error fetching chat messages', error, { userMessage: 'Failed to fetch chat messages.' });
-        onUpdate([]); // Notify with empty array on error
+        onUpdate([]);
         return;
       }
       onUpdate(data as unknown as Message[]);
@@ -426,25 +339,20 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     messagesChannel.on(
       'postgres_changes',
       {
-        event: '*', // Listen for INSERT, UPDATE, DELETE
+        event: '*',
         schema: 'public',
         table: 'messages',
         filter: `chat_id=eq.${chatId}`
       },
-      (payload) => {
-        console.log('Message change received!', payload);
-        handleMessageUpdate();
-      }
-    );
+      handleMessageUpdate
+    ).subscribe();
 
-    messagesChannel.subscribe();
-    handleMessageUpdate(); // Initial fetch
+    handleMessageUpdate();
 
     return () => {
       supabase.removeChannel(messagesChannel);
     };
   }, []);
-
 
   return (
     <ChatContext.Provider
