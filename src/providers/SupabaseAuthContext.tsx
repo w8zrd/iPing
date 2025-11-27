@@ -24,26 +24,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const isMounted = { current: true };
 
-const fetchUserProfile = async (userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', userId)
-      .single();
+    const fetchUserProfile = async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', userId)
+          .single();
 
-    if (!isMounted.current) return { isAdmin: false };
+        if (!isMounted.current) return { isAdmin: false };
 
-    if (error) {
-      logger.error('Error fetching admin status', error);
-      return { isAdmin: false };
-    }
-    return { isAdmin: data?.is_admin ?? false };
-  } catch (err) {
-    logger.error('Exception in fetchUserProfile', err);
-    return { isAdmin: false };
-  }
-};
+        if (error) {
+          logger.error('Error fetching admin status', error);
+          return { isAdmin: false };
+        }
+        return { isAdmin: data?.is_admin ?? false };
+      } catch (err) {
+        logger.error('Exception in fetchUserProfile', err);
+        return { isAdmin: false };
+      }
+    };
 
     const handleAuthStateChange = async (_event: string, session: Session | null) => {
       if (!isMounted.current) return;
@@ -71,18 +71,22 @@ const fetchUserProfile = async (userId: string) => {
       }
     };
 
-    // Initial session check - Refactored to async/await for better flow control
+    // 1. Set up the subscription first to catch initial and subsequent changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+
+    // 2. Initialize auth state based on current session
     const initializeAuth = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             logger.info('Initial session check', { session });
             if (session) {
-                await handleAuthStateChange('INITIAL_SESSION', session);
+                // Rely on the active listener (set up just before this call) to process the session.
             } else {
+                // If no session, explicitly set state and stop loading
                 setUser(null);
                 setSession(null);
                 setIsAdmin(false);
-                setLoading(false); // Ensure loading is false if no session
+                setLoading(false);
             }
         } catch (error) {
             logger.error('Error fetching initial session', error);
@@ -102,13 +106,10 @@ const fetchUserProfile = async (userId: string) => {
     };
     window.addEventListener('beforeunload', handleUnload);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
-
     return () => {
       isMounted.current = false;
       subscription.unsubscribe();
       window.removeEventListener('beforeunload', handleUnload);
-      window.removeEventListener('beforeunload', handleUnload); // Added second removal in case of error
     };
   }, []);
 

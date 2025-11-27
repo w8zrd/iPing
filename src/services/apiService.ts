@@ -1,18 +1,18 @@
 import { supabase } from '../supabaseClient';
-import type { Profile, Post } from '../types'; // Assuming Post type exists in ../types
+import type { Profile, Ping } from '../types';
 
 // Renaming class to ApiService for a more general purpose, incorporating profile and post logic
 export class ApiService {
-    private getUserId(): string | null {
-        // Assumes auth state is managed and user is available
-        return supabase.auth.user()?.id ?? null;
+    private async getUserId(): Promise<string | null> {
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.user?.id ?? null;
     }
 
     /**
      * Retrieves the current user's profile from the profiles table.
      */
     async fetchOwnProfile(): Promise<Profile | null> {
-        const userId = this.getUserId();
+        const userId = await this.getUserId();
         if (!userId) {
             console.error('User not authenticated to fetch profile.');
             return null;
@@ -29,7 +29,7 @@ export class ApiService {
             return null;
         }
 
-        // Supabase returns data as Profile or null if not found (though single() might throw error if not found depending on setup)
+        // Supabase returns data as Ping or null if not found (though single() might throw error if not found depending on setup)
         return data as Profile | null;
     }
 
@@ -38,7 +38,7 @@ export class ApiService {
      * @param updates Partial Profile data to update.
      */
     async updateProfile(updates: Partial<Profile>): Promise<Profile | null> {
-        const userId = this.getUserId();
+        const userId = await this.getUserId();
         if (!userId) {
             console.error('User not authenticated to update profile.');
             return null;
@@ -47,7 +47,9 @@ export class ApiService {
         // Ensure we only try to update fields that exist in Profile and are allowed updates
         const allowedUpdates: Partial<Profile> = {
             username: updates.username,
+            display_name: updates.display_name, // Added display_name
             bio: updates.bio,
+            location: updates.location, // Added location
             avatar_url: updates.avatar_url,
         };
         
@@ -81,7 +83,7 @@ export class ApiService {
      * @param file The File object to upload.
      */
     async uploadAvatar(file: File): Promise<Profile | null> {
-        const userId = this.getUserId();
+        const userId = await this.getUserId();
         if (!userId) {
             console.error('User not authenticated to upload avatar.');
             return null;
@@ -119,8 +121,8 @@ export class ApiService {
      * @param content The text content of the post.
      * @param imageFile Optional File object for the image.
      */
-    async createPost(content: string, imageFile?: File): Promise<Post | null> {
-        const userId = this.getUserId();
+    async createPost(content: string, imageFile?: File): Promise<Ping | null> {
+        const userId = await this.getUserId();
         if (!userId) {
             console.error('User not authenticated to create post.');
             return null;
@@ -169,25 +171,28 @@ export class ApiService {
             return null;
         }
 
-        return data as Post;
+        return data as Ping;
     }
     
     /**
-     * Retrieves the latest posts from the 'posts' table.
+     * Retrieves posts from the 'posts' table with pagination.
+     * @param limit The maximum number of posts to return.
+     * @param offset The number of posts to skip.
      */
-    async getFeed(): Promise<Post[] | null> {
-        // Fetch all posts, ordered by creation time descending (latest first)
+    async getPosts(limit: number = 20, offset: number = 0): Promise<Ping[] | null> {
+        // Fetch posts, ordered by creation time descending (latest first)
         const { data, error } = await supabase
             .from('posts')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         if (error) {
-            console.error('Error fetching feed:', error.message);
+            console.error('Error fetching posts:', error.message);
             return null;
         }
 
-        return data as Post[] | null;
+        return data as Ping[] | null;
     }
 }
 

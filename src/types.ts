@@ -7,9 +7,11 @@
 export interface Profile {
     id: string; // Foreign key to auth.users.id
     username: string;
+    display_name: string; // Added display_name
     bio: string | null;
     avatar_url: string | null;
     is_admin: boolean; // Added for new schema
+    location: string | null; // Added location
 }
  
 /**

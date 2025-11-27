@@ -1,12 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import Header from '@/components/Header';
 import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye, MoreVertical } from 'lucide-react';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
+import { apiService } from '@/services/apiService';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { logger } from '@/lib/logger';
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 
 interface Profile {
   id: string;
@@ -45,7 +48,10 @@ const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [friendRequests, setFriendRequests] = useState<string[]>([]);
   const [newPing, setNewPing] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [expandedPing, setExpandedPing] = useState<string | null>(null);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
   const [focusedCommentPing, setFocusedCommentPing] = useState<string | null>(null);
@@ -67,35 +73,59 @@ const Home = () => {
     }
   };
 
-  // Fetch pings
-  useEffect(() => {
-    fetchPings();
-  }, []);
+  const PAGE_SIZE = 20;
 
-  const fetchPings = async () => {
-    const { data, error } = await supabase
-      .from('pings')
-      .select(`
-        *,
-        profiles!pings_user_id_fkey(id, username, display_name, verified),
-        likes(id, user_id),
-        comments(
-          id,
-          user_id,
-          content,
-          created_at,
-          profiles!comments_user_id_fkey(id, username, display_name, verified)
-        )
-      `)
-      .order('created_at', { ascending: false });
+  const loadPosts = useCallback(async (append: boolean) => {
+    if (!hasMore && append) return;
+    
+    const offset = append ? page * PAGE_SIZE : 0;
+    const currentLoadingState = append ? setIsLoadingMore : setLoading;
 
-    if (!error && data) {
-      logger.info('Pings fetched successfully', { data });
-      setPosts(data as unknown as Post[]);
+    currentLoadingState(true);
+
+    const data = await apiService.getPosts(PAGE_SIZE, offset);
+
+    if (data) {
+      setHasMore(data.length === PAGE_SIZE);
+      setPage(prev => append ? prev + 1 : 0);
+      
+      setPosts(prevPosts => {
+        if (append) {
+          // Avoid adding duplicates from real-time updates if we scroll down and a new post arrives
+          const newIds = new Set(data.map(p => p.id));
+          const filteredPrevPosts = prevPosts.filter(p => !newIds.has(p.id));
+          return [...filteredPrevPosts, ...(data as unknown as Post[])];
+        }
+        return data as unknown as Post[];
+      });
     } else {
-      logger.error('Error fetching pings', error, { userMessage: 'Failed to fetch pings. Please try again.', showToast: true });
+      setHasMore(false);
+      logger.error('Error fetching posts', { userMessage: 'Failed to fetch pings. Please try again.' });
     }
-  };
+    
+    currentLoadingState(false);
+  }, [hasMore, page, isLoadingMore]);
+
+  // Initial load
+  useEffect(() => {
+    loadPosts(false);
+  }, [loadPosts]);
+
+  // Infinite Scroll Observer
+  const { ref: sentinelRef, isIntersecting } = useIntersectionObserver({ threshold: 0.1 });
+
+  useEffect(() => {
+    if (isIntersecting && hasMore && !loading && !isLoadingMore) {
+      loadPosts(true);
+    }
+  }, [isIntersecting, hasMore, loading, isLoadingMore, loadPosts]);
+  
+  // For initial load completion
+  useEffect(() => {
+    if (page === 0 && posts.length > 0 && loading) {
+        setLoading(false);
+    }
+  }, [posts, loading, page]);
 
   // Realtime subscription for new pings
   useEffect(() => {
@@ -103,7 +133,10 @@ const Home = () => {
       .channel('pings-changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pings' }, (payload) => {
         logger.debug('Realtime INSERT received', { new: payload.new });
-        setPosts((prevPosts) => [payload.new as Post, ...prevPosts]);
+        // Prepend new post to the top and reset page to 0 to refresh the view
+        setPosts((prevPosts) => [payload.new as unknown as Post, ...prevPosts]);
+        setPage(0);
+        setHasMore(true);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pings' }, (payload) => {
         logger.debug('Realtime UPDATE received', { new: payload.new });
@@ -114,21 +147,23 @@ const Home = () => {
             )
           );
         } else {
-          // For other updates, refetch the pings to ensure consistency
-          logger.info('Other ping update, refetching all pings.');
-          fetchPings();
+          // For other updates, refetch page 0 to ensure consistency
+          logger.info('Other ping update, refetching page 0.');
+          loadPosts(false);
         }
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pings' }, (payload) => {
         logger.debug('Realtime DELETE received', { oldId: payload.old.id });
         setPosts((prevPosts) => prevPosts.filter((post) => post.id !== payload.old.id));
+        // If a post is deleted, we might need to fetch a replacement for page 0 to keep it full.
+        loadPosts(false);
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadPosts]);
 
   // Handle navigation from notifications and shared links
   useEffect(() => {
@@ -199,8 +234,10 @@ const Home = () => {
         logger.info('Home.tsx: Ping created successfully.');
         setNewPing('');
         setPingImage(null);
-        // toast removed: Pinged!
-        fetchPings();
+        // Reset feed to page 0 to show new post immediately at the top
+        setPage(0);
+        setHasMore(true);
+        loadPosts(false);
       }
     } catch (error) {
       logger.error('Home.tsx: Unexpected error creating ping', error as Error, {
@@ -232,7 +269,8 @@ const Home = () => {
       if (error) logger.error('Home.tsx: Error liking ping', error);
     }
     
-    fetchPings();
+    // Re-fetch page 0 after like/unlike to ensure like count/status is correct
+    loadPosts(false);
   };
 
   const handleComment = async (pingId: string) => {
@@ -260,7 +298,8 @@ const Home = () => {
     } else {
       setCommentText({ ...commentText, [pingId]: '' });
       // toast removed: Comment added!
-      fetchPings();
+      // Force refetch page 0 to ensure comment count is correct
+      loadPosts(false);
     }
   };
 
@@ -484,12 +523,7 @@ const Home = () => {
                       if (rpcError) {
                         logger.error('Home.tsx: Error incrementing ping views', rpcError);
                       } else {
-                        logger.info('Home.tsx: Ping views incremented successfully', { pingId: ping.id });
-                        setPosts((prevPosts) =>
-                          prevPosts.map((p) =>
-                            p.id === ping.id ? { ...p, views: p.views + 1 } : p
-                          )
-                        );
+                        logger.info('Home.tsx: Ping views successfully updated via RPC. Realtime listener will update state.');
                       }
                     }
                   }}
@@ -584,8 +618,23 @@ const Home = () => {
        <div className={focusedCommentPing ? 'blur-sm pointer-events-none' : ''}>
          <Navigation />
        </div>
+
+       {/* Sentinel element for infinite scrolling */}
+       <div ref={sentinelRef} className="h-10 w-full flex items-center justify-center">
+         {hasMore && isLoadingMore && (
+           <div className="flex items-center gap-2 text-primary font-medium">
+             <LoadingSpinner />
+             Loading more pings...
+           </div>
+         )}
+         {!hasMore && posts.length > 0 && (
+           <p className="text-sm text-muted-foreground">You've reached the end of the feed.</p>
+         )}
+         {posts.length === 0 && !loading && (
+            <p className="text-center text-muted-foreground pt-4">No pings found. Be the first to post!</p>
+         )}
+       </div>
      </div>
    );
  };
- 
 export default Home;

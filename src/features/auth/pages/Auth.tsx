@@ -65,7 +65,7 @@ const Auth = () => {
   }, [loading, authLoading, user, isLogin, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background overflow-hidden">
       <div className="w-full max-w-md animate-scale-in">
         <div className="glass-strong rounded-3xl p-8 shadow-lg border-2">
           <div className="text-center mb-8">
