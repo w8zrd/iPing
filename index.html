@@ -6,10 +6,18 @@
     <title>iPing</title>
     <meta name="description" content="Go ahead. Ping someone." />
     <meta name="author" content="iPing" />
-    <link rel="icon" href="/logo.png" />
-
-    <script type="module" crossorigin src="/assets/index-CM0PV9rL.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BhreNis1.css">
+    <link rel="icon" href="/iPing/logo.png" />
+    <script type="text/javascript">
+      (function(){
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect != location.href) {
+          history.replaceState(null, null, redirect);
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/iPing/assets/index-4hGjUGNn.js"></script>
+    <link rel="stylesheet" crossorigin href="/iPing/assets/index-CA0tXz1a.css">
   </head>
 
   <body>
