@@ -169,9 +169,9 @@ const Profile = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen pb-32">
+      <div className="min-h-screen flex items-center justify-center pb-32 bg-background">
         <Header />
-        <div className="max-w-2xl mx-auto p-4 pt-24">
+        <div className="max-w-2xl mx-auto p-4 pt-24 text-center">
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
         <Navigation />
@@ -180,7 +180,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen pb-32">
+    <div className="min-h-screen pb-32 bg-background">
       <Header />
       <div className="max-w-2xl mx-auto p-4">
         <div className="mb-8 pt-24 animate-fade-in flex items-center justify-between">

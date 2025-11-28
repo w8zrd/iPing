@@ -1,22 +1,37 @@
--- Fix RLS Policies and Triggers
+-- Fix RLS Policies and Triggers (Idempotent)
 
 -- 1. Allow authenticated users to insert pings
-CREATE POLICY "Users can create pings."
-ON public.pings
-FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'pings' AND policyname = 'Users can create pings.'
+    ) THEN
+        CREATE POLICY "Users can create pings." ON public.pings FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+END
+$$;
 
 -- 2. Allow authenticated users to update their own pings
-CREATE POLICY "Users can update their own pings."
-ON public.pings
-FOR UPDATE
-USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'pings' AND policyname = 'Users can update their own pings.'
+    ) THEN
+        CREATE POLICY "Users can update their own pings." ON public.pings FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
+END
+$$;
 
 -- 3. Allow authenticated users to delete their own pings
-CREATE POLICY "Users can delete their own pings."
-ON public.pings
-FOR DELETE
-USING (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'pings' AND policyname = 'Users can delete their own pings.'
+    ) THEN
+        CREATE POLICY "Users can delete their own pings." ON public.pings FOR DELETE USING (auth.uid() = user_id);
+    END IF;
+END
+$$;
 
 -- 4. Function to handle new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -43,6 +58,3 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- 6. Fix Notifications RLS (Enable Insert for system/triggers, usually handled by service role, but for now ensure users can read)
--- Ensure 'Users can view their own notifications' exists (already in previous migration)
