@@ -7,7 +7,15 @@
     <meta name="description" content="Go ahead. Ping someone." />
     <meta name="author" content="iPing" />
     <link rel="icon" href="/logo.png" />
-
+    <script type="text/javascript">
+      (function(){
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect != location.href) {
+          history.replaceState(null, null, redirect);
+        }
+      })();
+    </script>
   </head>
 
   <body>

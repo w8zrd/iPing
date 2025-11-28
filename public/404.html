@@ -12,12 +12,17 @@
       var query = window.location.search;
       var hash = window.location.hash;
 
-      if (path.length > 1 && !path.includes('.')) {
-        sessionStorage.setItem('redirect', path + query + hash);
-        window.location.replace('/');
-      } else {
-        window.location.replace(path + query + hash);
-      }
+      // If we are on a path other than the base, redirect to base with the path stored
+      // We check for length > 1 (meaning not just /) but since we are in a subdir /iPing
+      // we essentially want to catch anything that isn't the root of the repo.
+      // However, 404.html only loads if the server didn't find the file, so we can assume we need to redirect.
+      // The only case we might not want to is if it looks like a file extension?
+      
+      sessionStorage.setItem('redirect', path + query + hash);
+      
+      // Redirect to the base path of the repo
+      // Hardcoded to /iPing/ as per the task requirements
+      window.location.replace('/iPing/');
     })();
   </script>
 </head>
