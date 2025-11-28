@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { ArrowLeft, Check, Send, Image as ImageIcon, X, CheckCheck } from 'lucide-react';
 import { ParsedText } from '@/lib/textParser';
-import { useChatContext } from '@/providers/ChatContext';
+import { useChatContext } from '@/providers/ChatProvider';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 
