@@ -58,9 +58,21 @@ const Home = () => {
   const [expandedPing, setExpandedPing] = useState<string | null>(null);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
   const [focusedCommentPing, setFocusedCommentPing] = useState<string | null>(null);
+  const [pingInputFocused, setPingInputFocused] = useState(false);
   const [pingImage, setPingImage] = useState<string | null>(null);
   const [pingFile, setPingFile] = useState<File | null>(null);
   // const { toast } = useToast(); // Removed as part of component cleanup
+
+  useEffect(() => {
+    if (pingInputFocused) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [pingInputFocused]);
   const { user } = useAuth();
 
   const handleDeletePing = async (pingId: string) => {
@@ -366,20 +378,27 @@ const Home = () => {
 
   return (
     <div className="min-h-screen pb-24">
-      <div className={focusedCommentPing ? 'blur-sm pointer-events-none' : ''}>
+      <div className={focusedCommentPing || pingInputFocused ? 'blur-sm pointer-events-none' : ''}>
         <Header />
       </div>
       <div className="max-w-2xl mx-auto p-4">
-        <div className="mb-8 pt-24 animate-fade-in">
+        <div className={`mb-8 pt-24 animate-fade-in ${pingInputFocused ? 'blur-sm pointer-events-none' : ''}`}>
           <p className="text-muted-foreground">Connect with friends</p>
         </div>
 
-        <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
+        {pingInputFocused && (
+          <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 animate-fade-in"
+            onClick={() => setPingInputFocused(false)}
+          />
+        )}
+        <div className={`glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in transition-all duration-300 ${pingInputFocused ? 'relative z-50 scale-105' : ''}`}>
           <textarea
             placeholder="What's on your mind?"
             value={newPing}
             onChange={(e) => setNewPing(e.target.value)}
-            className="min-h-[100px] rounded-2xl border-2 border-border/50 resize-none focus:outline-none focus:border-primary transition-all mb-4 p-2 w-full bg-transparent"
+            onFocus={() => setPingInputFocused(true)}
+            className="min-h-[100px] rounded-2xl border-2 border-gray-300 resize-none focus:outline-none focus:border-blue-500 transition-all mb-4 p-2 w-full bg-transparent"
           />
           {pingImage && (
         <div className="relative mb-4">
