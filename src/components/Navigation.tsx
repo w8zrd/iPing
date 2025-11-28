@@ -1,6 +1,6 @@
 import { Home, Bell, MessageCircle, User } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useChatContext } from '@/providers/ChatProvider';
+import { useChatContext } from '@/providers/ChatContext';
 import { useNotificationContext } from '@/providers/NotificationContext';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 

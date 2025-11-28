@@ -4,7 +4,7 @@ import Header from '@/components/Header';
 import { Avatar, AvatarFallback } from '@/components/ui/Avatar';
 import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useChatContext } from '@/providers/ChatProvider';
+import { useChatContext } from '@/providers/ChatContext';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 
