@@ -1,31 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { Profile, Ping } from "../types"; // Import Profile and Ping types
 
-/**
- * Toggles a like interaction for a ping.
- * Uses a Supabase RPC to handle the insert/upsert logic on the server.
- * @param ping_id The ID of the ping to like/unlike.
- * @param is_liked Current like status.
- */
-export async function toggleLike(ping_id: string, is_liked: boolean) {
-  if (is_liked) {
-    // Unlike: delete interaction
-    const { error } = await supabase.rpc('delete_ping_interaction', {
-      p_ping_id: ping_id,
-      p_interaction_type: 'LIKE',
-    });
-
-    if (error) throw new Error(error.message);
-  } else {
-    // Like: create interaction
-    const { error } = await supabase.rpc('create_ping_interaction', {
-      p_ping_id: ping_id,
-      p_interaction_type: 'LIKE',
-    });
-    
-    if (error) throw new Error(error.message);
-  }
-}
 
 /**
  * Fetches the user feed, including pings from followed users and popular pings.
@@ -34,57 +9,57 @@ export async function toggleLike(ping_id: string, is_liked: boolean) {
  * @param to The ending row index for pagination.
  */
 export async function fetchFeedPings(from: number = 0, to: number = 50): Promise<Array<Ping & {
-  profiles: Profile & {is_admin: boolean}; 
-  like_count: number; 
-  repost_count: number; 
-  is_liked: boolean; 
-  is_reposted: boolean;
+  profiles: Profile;
+  likes: { id: string, user_id: string }[];
+  comments: { id: string, user_id: string }[];
 }>> {
   const { data, error } = await supabase
     .from('pings')
     .select(`
       *,
-      profiles(id, username, display_name, verified, is_admin)
-      `)
+      profiles(id, username, display_name, verified, is_admin),
+      likes(id, user_id),
+      comments(id, user_id)
+    `)
     .range(from, to)
-    .order('created_at', { ascending: false }); // Will refine sorting later
+    .order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  // NOTE: Counts and interaction status are currently mocked.
-  return data.map(ping => ({
-    ...ping,
-    profiles: Array.isArray(ping.profiles) ? ping.profiles : ping.profiles,
-    like_count: 0,
-    repost_count: 0,
-    is_liked: false,
-    is_reposted: false,
-  }));
+  return data as Array<Ping & {
+    profiles: Profile;
+    likes: { id: string, user_id: string }[];
+    comments: { id: string, user_id: string }[];
+  }>;
 }
 
 /**
- * Toggles a repost interaction for a ping.
- * Uses a Supabase RPC to handle the insert/upsert logic on the server.
- * @param ping_id The ID of the ping to repost/unrepost.
- * @param is_reposted Current repost status.
+ * Toggles a like for a ping.
+ * @param ping_id The ID of the ping to like/unlike.
+ * @param is_liked Current like status.
  */
-export async function toggleRepost(ping_id: string, is_reposted: boolean) {
-  if (is_reposted) {
-    // Unrepost: delete interaction
-    const { error } = await supabase.rpc('delete_ping_interaction', {
-      p_ping_id: ping_id,
-      p_interaction_type: 'REPOST',
-    });
+export async function toggleLike(ping_id: string, is_liked: boolean) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('User not authenticated.');
+  }
+
+  if (is_liked) {
+    // Unlike: delete the like
+    const { error } = await supabase
+      .from('likes')
+      .delete()
+      .eq('ping_id', ping_id)
+      .eq('user_id', user.id);
 
     if (error) throw new Error(error.message);
   } else {
-    // Repost: create interaction
-    const { error } = await supabase.rpc('create_ping_interaction', {
-      p_ping_id: ping_id,
-      p_interaction_type: 'REPOST',
-    });
+    // Like: insert a new like
+    const { error } = await supabase
+      .from('likes')
+      .insert({ ping_id, user_id: user.id });
     
     if (error) throw new Error(error.message);
   }
@@ -111,12 +86,45 @@ export async function createPing({
     image_url,
   }).select(`
     *,
-    profiles(id, username, display_name, verified, is_admin)
-    `);
+    profiles(id, username, display_name, verified, is_admin),
+    likes(id, user_id),
+    comments(id, user_id)
+  `);
 
   if (error) {
     throw new Error(error.message);
   }
 
   return data;
+}
+
+/**
+ * Fetches a single ping by ID with all relations.
+ * @param pingId The ID of the ping to fetch.
+ */
+export async function getPing(pingId: string): Promise<Ping & {
+  profiles: Profile;
+  likes: { id: string, user_id: string }[];
+  comments: { id: string, user_id: string }[];
+}> {
+  const { data, error } = await supabase
+    .from('pings')
+    .select(`
+      *,
+      profiles(id, username, display_name, verified, is_admin),
+      likes(id, user_id),
+      comments(id, user_id)
+    `)
+    .eq('id', pingId)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as Ping & {
+    profiles: Profile;
+    likes: { id: string, user_id: string }[];
+    comments: { id: string, user_id: string }[];
+  };
 }

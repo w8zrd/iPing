@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 import { Profile } from '../types'; // Assuming Profile type is exported from types.ts
 
 export const authService = {

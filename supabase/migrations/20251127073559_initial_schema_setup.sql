@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   username text UNIQUE,
   updated_at timestamp with time zone,
   avatar_url text,
-  full_name text,
+  display_name text,
   is_admin boolean DEFAULT false -- Added missing column
 );
 
@@ -43,9 +43,31 @@ CREATE TABLE IF NOT EXISTS public.pings (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     content text NOT NULL,
+    image_url text, -- Added for image posts
+    views integer DEFAULT 0, -- Added for view count
     created_at timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public.pings ENABLE ROW LEVEL SECURITY;
+
+-- 4. Create the likes table
+CREATE TABLE IF NOT EXISTS public.likes (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ping_id uuid NOT NULL REFERENCES public.pings(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE (ping_id, user_id) -- A user can only like a ping once
+);
+ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
+
+-- 5. Create the comments table
+CREATE TABLE IF NOT EXISTS public.comments (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ping_id uuid NOT NULL REFERENCES public.pings(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    content text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 
 -- 4. Create the chat_participants table (for Error fetching chats)
 -- Assuming a simple many-to-many relationship linking users to chats

@@ -12,6 +12,7 @@ export interface Profile {
     avatar_url: string | null;
     is_admin: boolean; // Added for new schema
     location: string | null; // Added location
+    full_name?: string; // Optional for backward compatibility if needed, but display_name is preferred
 }
  
 /**
@@ -23,7 +24,30 @@ export interface Ping {
     user_id: string; // Foreign key to profiles.id
     content: string;
     image_url: string | null;
+    views: number; // Added views column
     created_at: string; // Using string for timestamp representation
+}
+
+/**
+ * Like Table Interface
+ */
+export interface Like {
+    id: string;
+    ping_id: string;
+    user_id: string;
+    created_at: string;
+}
+
+/**
+ * Comment Table Interface
+ */
+export interface Comment {
+    id: string;
+    ping_id: string;
+    user_id: string;
+    content: string;
+    created_at: string;
+    profiles?: Profile; // Added to match Home.tsx expectations
 }
  
 /**

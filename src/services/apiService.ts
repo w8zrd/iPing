@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 import type { Profile, Ping } from '../types';
 
 // Renaming class to ApiService for a more general purpose, incorporating profile and post logic

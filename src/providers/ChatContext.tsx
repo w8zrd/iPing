@@ -2,49 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './SupabaseAuthContext';
 import { logger } from '@/lib/logger';
-
-// Interface Definitions (copied directly from earlier successful read of ChatProvider.tsx)
-export interface Chat {
-  id: string;
-  created_at: string;
-  chat_name: string | null;
-  is_group_chat: boolean;
-  last_message_id: string | null;
-  messages?: Message[];
-  participants?: ChatParticipant[];
-  last_message?: Message; // For displaying in chat list
-  unread?: boolean;
-  last_read_at?: string | null;
-}
-
-export interface Message {
-  id: string;
-  created_at: string;
-  chat_id: string;
-  sender_id: string;
-  content: string;
-  is_read: boolean;
-  sender?: {
-    display_name: string;
-    username: string;
-    verified: boolean;
-    avatar_url: string;
-  };
-}
-
-export interface ChatParticipant {
-  id: string;
-  created_at: string;
-  chat_id: string;
-  user_id: string;
-  last_read_at: string | null;
-  profiles?: {
-    display_name: string;
-    username: string;
-    verified: boolean;
-    avatar_url: string;
-  };
-}
+import { Chat, Message, ChatParticipant } from '@/types'; // Import types from central types file
 
 interface ChatContextType {
   chats: Chat[];

@@ -8,7 +8,7 @@ import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { apiService } from '@/services/apiService';
 import { useAuth } from '@/providers/SupabaseAuthContext';
-import { createPing, toggleLike } from '@/api/pings';
+import { createPing, toggleLike, getPing } from '@/api/pings';
 import { logger } from '@/lib/logger';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 
@@ -132,12 +132,18 @@ const Home = () => {
   useEffect(() => {
     const channel = supabase
       .channel('pings-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pings' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pings' }, async (payload) => {
         logger.debug('Realtime INSERT received', { new: payload.new });
-        // Prepend new post to the top and reset page to 0 to refresh the view
-        setPosts((prevPosts) => [payload.new as unknown as Post, ...prevPosts]);
-        setPage(0);
-        setHasMore(true);
+        try {
+          // Fetch full ping details including profile
+          const newPingWithProfile = await getPing(payload.new.id);
+          // Prepend new post to the top and reset page to 0 to refresh the view
+          setPosts((prevPosts) => [newPingWithProfile as unknown as Post, ...prevPosts]);
+          setPage(0);
+          setHasMore(true);
+        } catch (error) {
+          logger.error('Error fetching new ping details', error);
+        }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pings' }, (payload) => {
         logger.debug('Realtime UPDATE received', { new: payload.new });
@@ -367,7 +373,7 @@ const Home = () => {
             onChange={(e) => setNewPing(e.target.value)}
             onFocus={() => setPingInputFocused(true)}
             onBlur={() => setPingInputFocused(false)}
-            className="min-h-[100px] rounded-2xl border border-border/50 resize-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary transition-apple mb-4 p-2 w-full bg-transparent"
+            className="min-h-[100px] rounded-2xl border border-border/50 resize-none focus:ring-2 focus:ring-primary focus:border-primary transition-apple mb-4 p-2 w-full bg-transparent"
           />
           {pingImage && (
             <div className="relative mb-4">
@@ -403,7 +409,7 @@ const Home = () => {
             <button
               onClick={handlePing}
               disabled={loading || (!newPing.trim() && !pingImage)}
-              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Pinging...' : 'Ping'}
             </button>
