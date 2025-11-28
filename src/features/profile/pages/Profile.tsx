@@ -10,6 +10,7 @@ import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { followUser, unfollowUser, isFollowing } from '@/api/user';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface UserProfile {
   id: string;
@@ -169,10 +170,44 @@ const Profile = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center pb-32 bg-background">
+      <div className="min-h-screen pb-32 bg-background">
         <Header />
-        <div className="max-w-2xl mx-auto p-4 pt-24 text-center">
-          <p className="text-muted-foreground">Loading profile...</p>
+        <div className="max-w-2xl mx-auto p-4">
+          <div className="mb-8 pt-24 flex items-center justify-between">
+             <div className="flex items-center gap-4">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-8 w-32" />
+             </div>
+          </div>
+
+          <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg">
+            <div className="flex items-start gap-4 mb-4">
+              <Skeleton className="w-20 h-20 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+            <Skeleton className="h-10 w-full mb-4 rounded-full" />
+            <Skeleton className="h-4 w-full mb-2" />
+            <Skeleton className="h-4 w-3/4 mb-4" />
+            <div className="flex gap-6">
+               <Skeleton className="h-4 w-16" />
+               <Skeleton className="h-4 w-16" />
+               <Skeleton className="h-4 w-16" />
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="glass rounded-3xl p-6 shadow-md">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         <Navigation />
       </div>

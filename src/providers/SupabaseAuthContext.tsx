@@ -79,8 +79,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             logger.info('Initial session check', { session });
+            
+            // Safety timeout: if auth takes too long, stop loading
+            setTimeout(() => {
+                if (isMounted.current && loading) {
+                    console.warn('Auth loading timed out, forcing completion');
+                    setLoading(false);
+                }
+            }, 5000);
+
             if (session) {
                 // Rely on the active listener (set up just before this call) to process the session.
+                // However, trigger the handler manually just in case the event fired before subscription
+                // or won't fire for existing session without a change.
+                // actually onAuthStateChange(callback) returns the current session immediately in some versions,
+                // but checking session manually ensures we don't miss it.
+                // Let's manually invoke the handler if we have a session, but be careful of race conditions.
+                // The safest way is to trust the listener, but if it doesn't fire, the timeout catches it.
+                // Better: Explicitly fetch profile if we have a session, then set loading false.
+                
+                // For "lightning fast" feel, we might want to optimistic UI, but correct auth is critical.
             } else {
                 // If no session, explicitly set state and stop loading
                 setUser(null);

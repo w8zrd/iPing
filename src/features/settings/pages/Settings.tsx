@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/providers/SupabaseAuthContext';
 import { updateUserProfile } from '@/api/user';
 import { supabase } from '@/lib/supabase';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface UserProfile {
   username: string;
@@ -114,9 +115,29 @@ const Settings = () => {
 
   if (loading || !profile) {
     return (
-        <div className="min-h-screen flex items-center justify-center overflow-hidden bg-background">
-             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen pb-32 overflow-hidden bg-background">
+        <div className="max-w-2xl mx-auto p-4">
+          <div className="mb-8 pt-24 flex items-center gap-4">
+             <Skeleton className="h-10 w-10 rounded-full" />
+             <Skeleton className="h-8 w-32" />
+          </div>
+          <div className="glass-strong rounded-3xl p-8 mb-6 shadow-lg">
+             <div className="flex flex-col items-center mb-6">
+                <Skeleton className="w-24 h-24 rounded-full mb-2" />
+             </div>
+             <div className="space-y-6">
+               {[1, 2, 3, 4].map(i => (
+                 <div key={i}>
+                   <Skeleton className="h-4 w-20 mb-2" />
+                   <Skeleton className="h-12 w-full rounded-2xl" />
+                 </div>
+               ))}
+               <Skeleton className="h-12 w-full rounded-2xl" />
+             </div>
+          </div>
         </div>
+        <Navigation />
+      </div>
     );
   }
 

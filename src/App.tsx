@@ -4,8 +4,8 @@ import { lazy, Suspense } from 'react';
 import { ChatProvider } from "./providers/ChatContext";
 import { NotificationProvider } from "./providers/NotificationContext";
 import { useAuth } from "./providers/SupabaseAuthContext";
-import LoadingSpinner from "./components/LoadingSpinner";
 import { Toaster } from "@/components/ui/Toaster";
+import { AppSkeleton } from "./components/skeletons/AppSkeleton";
 
 // Lazy load components
 const Home = lazy(() => import("./features/posts/pages/Home"));
@@ -24,11 +24,7 @@ const AuthRequiredWrapper = ({ children }: { children: React.ReactNode; }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
+    return <AppSkeleton />;
   }
   
   if (!user) {
@@ -44,7 +40,7 @@ const App = () => {
       <ChatProvider>
         <NotificationProvider>
             <BrowserRouter>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
+              <Suspense fallback={<AppSkeleton />}>
                 <Routes>
                   <Route path="/auth" element={<SupabaseAuth />} />
                   <Route path="/" element={<AuthRequiredWrapper><Home /></AuthRequiredWrapper>} />

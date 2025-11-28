@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import PingCard from './PingCard';
-import { Link } from 'react-router-dom';
 import { logger } from '../lib/logger';
 import { fetchFeedPings } from '@/api/pings';
 import { useAuth } from '@/providers/SupabaseAuthContext';
+import { FeedSkeleton } from './skeletons/FeedSkeleton';
 
 // Define the shape of the fetched ping data
 interface Ping {
@@ -53,8 +53,8 @@ const Feed: React.FC = () => {
     loadPings();
   }, [user]);
 
-  if (loading) return <p>Loading feed...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  if (loading) return <FeedSkeleton />;
+  if (error) return <p className="text-red-500 text-center py-4">{error}</p>;
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
