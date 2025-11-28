@@ -57,7 +57,7 @@ const Header = () => {
                     }
                   }}
                   placeholder="Search pings, people..."
-                  className="h-10 rounded-2xl glass border-border/50 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary transition-apple p-3 bg-transparent focus:outline-none w-full"
+                  className="h-10 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors p-3 bg-transparent focus:outline-none w-full"
                   autoFocus
                 />
                 <button

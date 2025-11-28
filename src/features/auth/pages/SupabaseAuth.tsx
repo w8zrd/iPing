@@ -87,7 +87,7 @@ const SupabaseAuth = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                  className="h-12 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors"
                 />
               </div>
             )}
@@ -98,7 +98,7 @@ const SupabaseAuth = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors"
               />
             </div>
             <div className="space-y-2 relative">
@@ -109,7 +109,7 @@ const SupabaseAuth = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple pr-10"
+                className="h-12 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors pr-10"
               />
               <button
                 type="button"

@@ -173,7 +173,7 @@ const Settings = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors"
               />
             </div>
             
@@ -183,7 +183,7 @@ const Settings = () => {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter your display name"
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors"
               />
             </div>
             
@@ -193,7 +193,7 @@ const Settings = () => {
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Tell us about yourself"
-                className="min-h-[100px] rounded-2xl glass border-border/50 resize-none focus:border-primary transition-apple"
+                className="min-h-[100px] rounded-2xl glass border-2 border-border/50 resize-none focus:border-blue-500 transition-colors"
               />
             </div>
             
@@ -203,7 +203,7 @@ const Settings = () => {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Enter your location"
-                className="h-12 rounded-2xl glass border-border/50 focus:border-primary transition-apple"
+                className="h-12 rounded-2xl glass border-2 border-border/50 focus:border-blue-500 transition-colors"
               />
             </div>
             
