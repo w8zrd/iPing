@@ -3,8 +3,9 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Header from '@/components/Header';
-import CreatePing from '@/components/CreatePost';
-import { Heart, MessageCircle, Send, UserPlus, Check, Share2, Eye, MoreVertical } from 'lucide-react';
+import { Heart, MessageCircle, Send, UserPlus, Check, Image as ImageIcon, X, Share2, Eye, MoreVertical } from 'lucide-react';
+import { createPing } from '@/api/pings';
+import { uploadMedia } from '@/api/storage';
 import { ParsedText } from '@/lib/textParser';
 import { supabase } from '@/lib/supabase';
 import { apiService } from '@/services/apiService';
@@ -49,6 +50,7 @@ const Home = () => {
   const [highlightedPing, setHighlightedPing] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [friendRequests, setFriendRequests] = useState<string[]>([]);
+  const [newPing, setNewPing] = useState('');
   const [loading, setLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -56,6 +58,8 @@ const Home = () => {
   const [expandedPing, setExpandedPing] = useState<string | null>(null);
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
   const [focusedCommentPing, setFocusedCommentPing] = useState<string | null>(null);
+  const [pingImage, setPingImage] = useState<string | null>(null);
+  const [pingFile, setPingFile] = useState<File | null>(null);
   // const { toast } = useToast(); // Removed as part of component cleanup
   const { user } = useAuth();
 
@@ -205,6 +209,56 @@ const Home = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [highlightedPing, setSearchParams]);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPingFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPingImage(reader.result as string);
+        logger.debug('Image loaded for ping preview');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePing = async () => {
+    if (!user) {
+      navigate('/auth'); // Redirect to auth page if not authenticated
+      return;
+    }
+    if (!newPing.trim() && !pingFile && !pingImage) return;
+    
+    setLoading(true);
+
+    logger.debug('Home.tsx: Attempting to create new ping', { newPing, hasImage: !!pingFile });
+    try {
+      let imageUrl = undefined;
+      if (pingFile) {
+         imageUrl = await uploadMedia(pingFile);
+      }
+      
+      await createPing({
+        user_id: user.id,
+        content: newPing,
+        image_url: imageUrl,
+      });
+
+      logger.info('Home.tsx: Ping created successfully.');
+      setNewPing('');
+      setPingImage(null);
+      setPingFile(null);
+      // Reset feed to page 0 to show new post immediately at the top
+      setPage(0);
+      setHasMore(true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      logger.error('Home.tsx: Error creating ping', error, { userMessage: `Failed to ping. Please try again. Details: ${errorMessage}`, showToast: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLike = async (pingId: string) => {
     if (!user) {
       navigate('/auth'); // Redirect to auth page if not authenticated
@@ -320,7 +374,53 @@ const Home = () => {
           <p className="text-muted-foreground">Connect with friends</p>
         </div>
 
-        <CreatePing />
+        <div className="glass-strong rounded-3xl p-6 mb-6 shadow-lg animate-scale-in">
+          <textarea
+            placeholder="What's on your mind?"
+            value={newPing}
+            onChange={(e) => setNewPing(e.target.value)}
+            className="min-h-[100px] rounded-2xl border-2 border-border/50 resize-none focus:outline-none focus:border-primary transition-all mb-4 p-2 w-full bg-transparent"
+          />
+          {pingImage && (
+        <div className="relative mb-4">
+          <img src={pingImage} alt="Upload preview" className="rounded-2xl max-h-64 w-full object-cover" />
+          <button
+            onClick={() => { setPingImage(null); setPingFile(null); }}
+                className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full p-1.5 hover:bg-background transition-apple"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <label className="flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                className="w-full h-12 rounded-2xl border border-border/50 bg-background/50 hover:bg-background/80 transition-apple flex items-center justify-center"
+                onClick={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget.previousElementSibling as HTMLInputElement)?.click();
+                }}
+              >
+                <ImageIcon className="h-5 w-5 mr-2" />
+                Image
+              </button>
+            </label>
+            <button
+              onClick={handlePing}
+              disabled={loading || (!newPing.trim() && !pingImage)}
+              className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Pinging...' : 'Ping'}
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {posts.map((ping, index) => (
