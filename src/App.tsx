@@ -5,6 +5,7 @@ import { ChatProvider } from "./providers/ChatContext";
 import { NotificationProvider } from "./providers/NotificationContext";
 import { useAuth } from "./providers/SupabaseAuthContext";
 import LoadingSpinner from "./components/LoadingSpinner";
+import { Toaster } from "@/components/ui/Toaster";
 
 // Lazy load components
 const Home = lazy(() => import("./features/posts/pages/Home"));
@@ -60,6 +61,7 @@ const App = () => {
               </Suspense>
             </BrowserRouter>
        </NotificationProvider>
+        <Toaster />
      </ChatProvider>
    </QueryClientProvider>
   );

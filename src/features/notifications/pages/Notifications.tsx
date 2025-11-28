@@ -7,66 +7,63 @@ import { useNavigate } from 'react-router-dom';
 import { useNotificationContext } from '@/providers/NotificationContext';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/providers/SupabaseAuthContext';
+import { Loader2 } from 'lucide-react';
 
 interface Notification {
   id: string;
-  type: 'like' | 'comment' | 'friend_request' | 'follow';
-  user: {
-    username: string;
-    displayName: string;
-    verified: boolean;
-  };
-  text: string;
-  timestamp: Date;
-  read: boolean;
-  postId?: string;
-  commentId?: string;
+  type: string;
+  content: any;
+  is_read: boolean;
+  created_at: string;
+  user_id: string; // The user receiving the notification
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'like',
-    user: { username: 'alex', displayName: 'Alex Chen', verified: true },
-    text: 'liked your ping',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    read: false,
-    postId: 'post-1',
-  },
-  {
-    id: '2',
-    type: 'friend_request',
-    user: { username: 'sarah', displayName: 'Sarah Johnson', verified: false },
-    text: 'sent you a friend request',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'comment',
-    user: { username: 'mike', displayName: 'Mike Davis', verified: true },
-    text: 'commented on your ping',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    read: true,
-    postId: 'post-2',
-    commentId: 'comment-1',
-  },
-];
+// Helper to format notification text and get related user info
+// This assumes content jsonb has structured data like { actor: { username, display_name... }, text: "...", link: "..." }
+// Since the schema is generic jsonb, we need to adapt based on how we insert data.
+// For now, I'll assume we need to fetch related profiles or the content stores actor info.
 
 const Notifications = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { markNotificationAsRead } = useNotificationContext();
   const { toast } = useToast();
-  const [friendRequestActions, setFriendRequestActions] = useState<Record<string, 'accepted' | 'rejected'>>({});
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mark all visible notifications as read when page loads
-    mockNotifications.forEach(notif => {
-      if (!notif.read) {
-        markNotificationAsRead(notif.id);
-      }
-    });
-  }, [markNotificationAsRead]);
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user!.id)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setNotifications(data || []);
+        
+        // Mark unread as read
+        data?.forEach(async (notif) => {
+             if (!notif.is_read) {
+                 await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
+                 markNotificationAsRead(notif.id);
+             }
+        });
+
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+    } finally {
+        setLoading(false);
+    }
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -81,28 +78,13 @@ const Notifications = () => {
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    markNotificationAsRead(notification.id);
-    
-    if (notification.type === 'like' && notification.postId) {
-      navigate(`/?post=${notification.postId}`);
-    } else if (notification.type === 'comment' && notification.postId) {
-      navigate(`/?post=${notification.postId}&openComments=true`);
-    } else if (notification.type === 'friend_request' || notification.type === 'follow') {
-      navigate(`/profile/${notification.user.username}`);
-    }
-  };
-
-  const handleFriendRequest = (notificationId: string, action: 'accepted' | 'rejected', displayName: string) => {
-    setFriendRequestActions(prev => ({ ...prev, [notificationId]: action }));
-    markNotificationAsRead(notificationId);
-    
-    // Simulate notification to the other user
-    toast({
-      title: action === 'accepted' ? 'Friend request accepted' : 'Friend request declined',
-      description: `${displayName} will be notified about your response`,
-    });
-  };
+  if (loading) {
+      return (
+          <div className="min-h-screen flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+      );
+  }
 
   return (
     <div className="min-h-screen pb-32">
@@ -113,84 +95,52 @@ const Notifications = () => {
         </div>
 
         <div className="glass-strong rounded-3xl shadow-md overflow-hidden">
-          {mockNotifications.map((notification, index) => (
-            <div
-              key={notification.id}
-              className={`p-4 animate-fade-in border-b border-border/30 last:border-b-0 ${
-                !notification.read ? 'bg-primary/5' : ''
-              } ${notification.type === 'friend_request' ? '' : 'cursor-pointer hover:bg-primary/5 transition-apple'}`}
-              style={{ animationDelay: `${index * 0.05}s` }}
-              onClick={() => notification.type !== 'friend_request' && handleNotificationClick(notification)}
-            >
-              <div className="flex items-start gap-3">
-                <div className="relative">
-                  <Avatar className="w-12 h-12">
-                    <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
-                      {notification.user.displayName[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                    {getIcon(notification.type)}
-                  </div>
-                </div>
+          {notifications.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">No notifications yet</div>
+          ) : (
+            notifications.map((notification, index) => {
+                // Parse content if string, or use directly if object
+                const content = typeof notification.content === 'string' ? JSON.parse(notification.content) : notification.content;
+                const actor = content.actor || { displayName: 'Unknown', username: 'unknown' };
 
-                <div className="flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold">{notification.user.displayName}</span>
-                    {notification.user.verified && (
-                      <div className="flex items-center justify-center w-4 h-4 bg-primary rounded-full">
-                        <Check className="h-3 w-3 text-white stroke-[3]" />
-                      </div>
-                    )}
-                    <span className="text-muted-foreground text-sm">
-                      @{notification.user.username}
-                    </span>
-                  </div>
-                  {notification.type === 'friend_request' && friendRequestActions[notification.id] ? (
-                    <>
-                      <p className="text-sm text-foreground/80">
-                        You {friendRequestActions[notification.id]} @{notification.user.username}'s friend request
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {notification.timestamp.toLocaleString()}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-foreground/80">{notification.text}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {notification.timestamp.toLocaleString()}
-                      </p>
-                      
-                      {notification.type === 'friend_request' && (
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendRequest(notification.id, 'accepted', notification.user.displayName);
-                            }}
-                          >
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendRequest(notification.id, 'rejected', notification.user.displayName);
-                            }}
-                          >
-                            Decline
-                          </Button>
+                return (
+                    <div
+                    key={notification.id}
+                    className={`p-4 animate-fade-in border-b border-border/30 last:border-b-0 ${
+                        !notification.is_read ? 'bg-primary/5' : ''
+                    }`}
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                    <div className="flex items-start gap-3">
+                        <div className="relative">
+                        <Avatar className="w-12 h-12">
+                            <AvatarFallback className="bg-gradient-to-br from-primary via-primary/80 to-primary/50 text-white font-bold">
+                            {actor.displayName?.[0]?.toUpperCase() || '?'}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                            {getIcon(notification.type)}
                         </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+                        </div>
+
+                        <div className="flex-1">
+                        <div className="flex items-center gap-1">
+                            <span className="font-semibold">{actor.displayName}</span>
+                            <span className="text-muted-foreground text-sm">
+                            @{actor.username}
+                            </span>
+                        </div>
+                        
+                        <p className="text-sm text-foreground/80">{content.text || 'New notification'}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(notification.created_at).toLocaleString()}
+                        </p>
+                        </div>
+                    </div>
+                    </div>
+                );
+            })
+          )}
         </div>
       </div>
 

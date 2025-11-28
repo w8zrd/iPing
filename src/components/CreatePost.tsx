@@ -67,7 +67,7 @@ const CreatePing: React.FC = () => {
         <textarea
           id="content-input"
           name="content-input"
-          className="w-full p-2 border border-gray-300 rounded-lg resize-none focus:ring-blue-500 focus:border-blue-500 transition"
+          className="w-full p-2 border-2 border-gray-200 rounded-lg resize-none focus:outline-none focus:border-blue-500 transition-colors"
           placeholder="What's on your mind? Add an image for extra flair!"
           rows={imagePreview ? 4 : 2}
           value={content}
