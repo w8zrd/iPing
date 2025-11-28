@@ -128,7 +128,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         },
         (payload) => {
           logger.debug('New message received, updating chat list', { payload });
-          updateChatList(payload.new);
+          updateChatList(payload.new as Message);
         }
       )
       .subscribe();
