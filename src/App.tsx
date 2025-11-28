@@ -42,7 +42,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ChatProvider>
         <NotificationProvider>
-            <BrowserRouter basename="/iPing">
+            <BrowserRouter>
               <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
                 <Routes>
                   <Route path="/auth" element={<SupabaseAuth />} />
