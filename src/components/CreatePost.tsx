@@ -4,9 +4,15 @@ import { logger } from '@/lib/logger';
 import { uploadMedia } from '@/api/storage';
 import { createPing } from '@/api/pings';
 import { Image as ImageIcon, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-const CreatePing: React.FC = () => {
+interface CreatePingProps {
+  onPostCreated?: () => void;
+}
+
+const CreatePing: React.FC<CreatePingProps> = ({ onPostCreated }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [content, setContent] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -54,9 +60,15 @@ const CreatePing: React.FC = () => {
       setImagePreview(null);
       setIsFocused(false); // Reset focus
       logger.info('Ping created successfully!');
-      // TODO: Trigger feed refresh
-    } catch (error) {
-      logger.error('Error in post creation process', error, { userMessage: `Post failed: ${error instanceof Error ? error.message : 'unknown error'}`, showToast: true });
+      toast({ title: 'Posted!', description: 'Your ping has been sent.' });
+      if (onPostCreated) onPostCreated();
+    } catch (error: any) {
+      console.error('Post creation error:', error);
+      toast({
+        title: 'Error posting',
+        description: error.message || 'Could not send ping. Please try again.',
+        variant: 'destructive'
+      });
     } finally {
       setIsPinging(false);
       setUploading(false);
