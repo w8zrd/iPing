@@ -155,9 +155,9 @@ export class ApiService {
                 .getPublicUrl(filePath).data.publicUrl;
         }
 
-        // 3. Insert the new record into the 'posts' table
+        // 3. Insert the new record into the 'pings' table
         const { data, error } = await supabase
-            .from('posts') // Assuming 'posts' table exists
+            .from('pings')
             .insert({
                 user_id: userId,
                 content: content,
@@ -180,19 +180,29 @@ export class ApiService {
      * @param offset The number of posts to skip.
      */
     async getPosts(limit: number = 20, offset: number = 0): Promise<Ping[] | null> {
-        // Fetch posts, ordered by creation time descending (latest first)
-        const { data, error } = await supabase
-            .from('posts')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+        try {
+            // Fetch posts from 'pings' table (corrected from 'posts'), ordered by creation time descending
+            const { data, error } = await supabase
+                .from('pings')
+                .select(`
+                    *,
+                    profiles(id, username, display_name, verified, avatar_url),
+                    likes(id, user_id),
+                    comments(id)
+                `)
+                .order('created_at', { ascending: false })
+                .range(offset, offset + limit - 1);
 
-        if (error) {
-            console.error('Error fetching posts:', error.message);
-            return null;
+            if (error) {
+                console.error('Error fetching posts:', error.message);
+                return null;
+            }
+
+            return data as unknown as Ping[];
+        } catch (error) {
+             console.error('Exception fetching posts:', error);
+             return null;
         }
-
-        return data as Ping[] | null;
     }
 }
 

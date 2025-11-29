@@ -13,6 +13,7 @@ import { useAuth } from '@/providers/SupabaseAuthContext';
 import { toggleLike, getPing } from '@/api/pings';
 import { logger } from '@/lib/logger';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
+import { FeedSkeleton } from '@/components/skeletons/FeedSkeleton';
 
 interface Profile {
   id: string;
@@ -96,29 +97,34 @@ const Home = () => {
     const offset = append ? page * PAGE_SIZE : 0;
     const currentLoadingState = append ? setIsLoadingMore : setLoading;
 
-    currentLoadingState(true);
+    try {
+      currentLoadingState(true);
 
-    const data = await apiService.getPosts(PAGE_SIZE, offset);
+      const data = await apiService.getPosts(PAGE_SIZE, offset);
 
-    if (data) {
-      setHasMore(data.length === PAGE_SIZE);
-      setPage(prev => append ? prev + 1 : 0);
-      
-      setPosts(prevPosts => {
-        if (append) {
-          // Avoid adding duplicates from real-time updates if we scroll down and a new post arrives
-          const newIds = new Set(data.map(p => p.id));
-          const filteredPrevPosts = prevPosts.filter(p => !newIds.has(p.id));
-          return [...filteredPrevPosts, ...(data as unknown as Post[])];
-        }
-        return data as unknown as Post[];
-      });
-    } else {
+      if (data) {
+        setHasMore(data.length === PAGE_SIZE);
+        setPage(prev => append ? prev + 1 : 0);
+        
+        setPosts(prevPosts => {
+          if (append) {
+            // Avoid adding duplicates from real-time updates if we scroll down and a new post arrives
+            const newIds = new Set(data.map(p => p.id));
+            const filteredPrevPosts = prevPosts.filter(p => !newIds.has(p.id));
+            return [...filteredPrevPosts, ...(data as unknown as Post[])];
+          }
+          return data as unknown as Post[];
+        });
+      } else {
+        setHasMore(false);
+        // Don't error toast on initial load if empty, just show empty state
+      }
+    } catch (error) {
+      logger.error('Error in loadPosts', error);
       setHasMore(false);
-      logger.error('Error fetching posts', { userMessage: 'Failed to fetch pings. Please try again.' });
+    } finally {
+      currentLoadingState(false);
     }
-    
-    currentLoadingState(false);
   }, [hasMore, page, isLoadingMore]);
 
   // Initial load
@@ -135,13 +141,6 @@ const Home = () => {
     }
   }, [isIntersecting, hasMore, loading, isLoadingMore, loadPosts]);
   
-  // For initial load completion
-  useEffect(() => {
-    if (page === 0 && posts.length > 0 && loading) {
-        setLoading(false);
-    }
-  }, [posts, loading, page]);
-
   // Realtime subscription for new pings
   useEffect(() => {
     const channel = supabase
@@ -207,6 +206,20 @@ const Home = () => {
       }, 100);
     }
   }, [searchParams, setHighlightedPing, setExpandedPing]);
+
+  if (loading && !isLoadingMore && posts.length === 0) {
+      return (
+        <div className="min-h-screen pb-24">
+           <div className={focusedCommentPing ? 'blur-sm pointer-events-none' : ''}>
+             <Header />
+           </div>
+           <div className="max-w-2xl mx-auto p-4 pt-24">
+              <FeedSkeleton />
+           </div>
+           <Navigation />
+        </div>
+      );
+  }
 
   // Clear highlight on scroll
   useEffect(() => {
