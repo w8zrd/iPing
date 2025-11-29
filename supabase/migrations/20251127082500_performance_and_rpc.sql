@@ -11,6 +11,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
+    SET search_path = public, pg_temp;
     UPDATE public.pings
     SET views = views + 1
     WHERE id = _ping_id;
